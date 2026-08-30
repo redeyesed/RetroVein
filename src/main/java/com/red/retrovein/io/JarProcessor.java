@@ -1,6 +1,7 @@
 package com.red.retrovein.io;
 
 import com.red.retrovein.mapping.Mapping;
+import com.red.retrovein.mapping.MappingBuilder;
 import com.red.retrovein.transform.ClassTransformer;
 import com.red.retrovein.transform.TransformationContext;
 
@@ -40,6 +41,12 @@ public final class JarProcessor {
 		try (JarFile jar = new JarFile(input.toFile());
 				OutputStream fileOutput = Files.newOutputStream(output);
 				JarOutputStream outputJar = new JarOutputStream(fileOutput)) {
+
+			JarClassScanner scanner = new JarClassScanner();
+
+			List<String> classNames = scanner.scan(jar);
+
+			MappingBuilder mappingBuilder = new MappingBuilder();
 
 			Mapping mapping = new Mapping(Collections.<String, String>emptyMap());
 

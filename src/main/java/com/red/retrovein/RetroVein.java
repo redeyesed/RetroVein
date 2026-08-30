@@ -1,6 +1,7 @@
 package com.red.retrovein;
 
 import com.red.retrovein.io.JarProcessor;
+import com.red.retrovein.transform.AsmClassRenamer;
 import com.red.retrovein.transform.AsmIdentityTransformer;
 
 import java.nio.file.Path;
@@ -28,7 +29,7 @@ public final class RetroVein {
 
 		long start = System.nanoTime();
 
-		JarProcessor processor = new JarProcessor(new AsmIdentityTransformer(), threads);
+		JarProcessor processor = new JarProcessor(new AsmClassRenamer(), threads);
 
 		processor.process(input, output);
 
