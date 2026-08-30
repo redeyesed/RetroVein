@@ -19,6 +19,14 @@ jar {
             'Main-Class': 'com.red.retrovein.RetroVein'
         )
     }
+    
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    
+     from {
+        configurations.runtimeClasspath.collect {
+            it.isDirectory() ? it : zipTree(it)
+        }
+    }
 }
 
 java {
