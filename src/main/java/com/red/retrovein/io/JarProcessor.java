@@ -1,6 +1,8 @@
 package com.red.retrovein.io;
 
+import com.red.retrovein.mapping.Mapping;
 import com.red.retrovein.transform.ClassTransformer;
+import com.red.retrovein.transform.TransformationContext;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -9,6 +11,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -38,6 +41,10 @@ public final class JarProcessor {
 				OutputStream fileOutput = Files.newOutputStream(output);
 				JarOutputStream outputJar = new JarOutputStream(fileOutput)) {
 
+			Mapping mapping = new Mapping(Collections.<String, String>emptyMap());
+
+			TransformationContext context = new TransformationContext(mapping);
+
 			List<Future<ClassResult>> tasks = new ArrayList<Future<ClassResult>>();
 
 			java.util.Enumeration<JarEntry> entries = jar.entries();
@@ -60,7 +67,7 @@ public final class JarProcessor {
 					final String entryName = entry.getName();
 					final byte[] classData = data;
 
-					tasks.add(executor.submit(() -> transformClass(entryName, classData)));
+					tasks.add(executor.submit(() -> transformClass(entryName, classData, context)));
 				} else {
 					writeEntry(outputJar, entry.getName(), data);
 				}
@@ -87,10 +94,10 @@ public final class JarProcessor {
 		}
 	}
 
-	private ClassResult transformClass(String entryName, byte[] bytecode) {
+	private ClassResult transformClass(String entryName, byte[] bytecode, TransformationContext context) {
 		String className = entryName.substring(0, entryName.length() - ".class".length());
 
-		byte[] transformed = transformer.transform(className, bytecode);
+		byte[] transformed = transformer.transform(className, bytecode, context);
 
 		return new ClassResult(entryName, transformed);
 	}

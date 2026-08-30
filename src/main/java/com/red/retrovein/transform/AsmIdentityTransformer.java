@@ -5,7 +5,7 @@ import org.objectweb.asm.ClassWriter;
 
 public final class AsmIdentityTransformer implements ClassTransformer {
     @Override
-    public byte[] transform(String className, byte[] bytecode) {
+    public byte[] transform(String className, byte[] bytecode, TransformationContext context) {
         ClassReader reader = new ClassReader(bytecode);
         ClassWriter writer = new ClassWriter(reader, 0);
 
