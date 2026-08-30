@@ -9,6 +9,18 @@ repositories {
     mavenCentral()
 }
 
+dependencies {
+    implementation 'org.ow2.asm:asm-all:5.0.3'
+}
+
+jar {
+    manifest {
+        attributes(
+            'Main-Class': 'com.red.retrovein.RetroVein'
+        )
+    }
+}
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(17)
