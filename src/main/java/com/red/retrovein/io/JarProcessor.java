@@ -12,7 +12,6 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -48,7 +47,7 @@ public final class JarProcessor {
 
 			MappingBuilder mappingBuilder = new MappingBuilder();
 
-			Mapping mapping = new Mapping(Collections.<String, String>emptyMap());
+			Mapping mapping = mappingBuilder.build(classNames);
 
 			TransformationContext context = new TransformationContext(mapping);
 
@@ -105,8 +104,12 @@ public final class JarProcessor {
 		String className = entryName.substring(0, entryName.length() - ".class".length());
 
 		byte[] transformed = transformer.transform(className, bytecode, context);
+		
+	    String outputName =
+	            context.getMapping().getClassName(className)
+	                    + ".class";
 
-		return new ClassResult(entryName, transformed);
+		return new ClassResult(outputName, transformed);
 	}
 
 	private static void writeEntry(JarOutputStream output, String name, byte[] data) throws IOException {
