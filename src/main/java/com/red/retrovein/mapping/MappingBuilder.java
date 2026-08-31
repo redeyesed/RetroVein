@@ -70,6 +70,23 @@ public final class MappingBuilder {
 		for (ClassInfo classInfo : sortedClasses) {
 			collectMethods(classInfo, metadata, methods);
 		}
+		
+		System.out.println("METHOD MAPPING:");
+
+		for (Map.Entry<String, String> entry : methods.entrySet()) {
+		    System.out.println(
+		            entry.getKey() + " -> " + entry.getValue()
+		    );
+		}
+
+		System.out.println("FIELD MAPPING:");
+
+		for (Map.Entry<String, String> entry : fields.entrySet()) {
+		    System.out.println(
+		            entry.getKey() + " -> " + entry.getValue()
+		    );
+		}
+
 
 		return new Mapping(classes, methods, fields);
 	}
