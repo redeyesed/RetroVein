@@ -1,6 +1,8 @@
 package com.red.retrovein.io;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
@@ -8,9 +10,8 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
 public final class JarClassScanner {
-	public List<String> scan(JarFile jar) throws IOException {
-
-		List<String> classes = new ArrayList<String>();
+	public List<ClassInfo> scan(JarFile jar) throws IOException {
+		List<ClassInfo> classes = new ArrayList<ClassInfo>();
 
 		Enumeration<JarEntry> entries = jar.entries();
 
@@ -27,9 +28,24 @@ public final class JarClassScanner {
 
 			String className = entry.getName().substring(0, entry.getName().length() - ".class".length());
 
-			classes.add(className);
+			try (InputStream inputStream = jar.getInputStream(entry)) {
+				classes.add(new ClassInfo(className, readAll(inputStream)));
+			}
 		}
 
 		return classes;
+	}
+
+	private static byte[] readAll(InputStream inputStream) throws IOException {
+		ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+		byte[] buffer = new byte[8192];
+		int count;
+
+		while ((count = inputStream.read(buffer)) != -1) {
+			output.write(buffer, 0, count);
+		}
+
+		return output.toByteArray();
 	}
 }

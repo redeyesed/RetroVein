@@ -48,11 +48,11 @@ public final class JarProcessor {
 
 			JarClassScanner scanner = new JarClassScanner();
 
-			List<String> classNames = scanner.scan(jar);
+			List<ClassInfo> classInfos = scanner.scan(jar);
 
 			MappingBuilder mappingBuilder = new MappingBuilder();
 
-			Mapping mapping = mappingBuilder.build(classNames);
+			Mapping mapping = mappingBuilder.build(classInfos);
 
 			TransformationContext context = new TransformationContext(mapping);
 
