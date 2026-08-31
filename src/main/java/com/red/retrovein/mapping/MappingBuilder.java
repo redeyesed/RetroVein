@@ -147,6 +147,11 @@ public final class MappingBuilder {
 				if ("<init>".equals(name) || "<clinit>".equals(name)) {
 					return null;
 				}
+				
+				// The JVM entry point must retain the "main" method name.
+                if ("main".equals(name) && "([Ljava/lang/String;)V".equals(descriptor)) {
+                     return null;
+                }
 
 				/*
 				 * Private methods do not participate in overriding.
