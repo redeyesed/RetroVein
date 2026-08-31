@@ -1,14 +1,11 @@
 package com.red.retrovein;
 
 import com.red.retrovein.io.JarProcessor;
-import com.red.retrovein.transform.AsmClassRenamer;
-import com.red.retrovein.transform.AsmMemberRenamer;
 import com.red.retrovein.transform.AsmRemappingTransformer;
 import com.red.retrovein.transform.ClassTransformer;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
