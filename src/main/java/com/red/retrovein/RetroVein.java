@@ -2,8 +2,12 @@ package com.red.retrovein;
 
 import com.red.retrovein.io.JarProcessor;
 import com.red.retrovein.transform.AsmClassRenamer;
+import com.red.retrovein.transform.ClassTransformer;
+
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
+import java.util.List;
 
 public final class RetroVein {
 	private RetroVein() {
@@ -27,7 +31,9 @@ public final class RetroVein {
 
 		long start = System.nanoTime();
 
-		JarProcessor processor = new JarProcessor(new AsmClassRenamer(), threads);
+		List<ClassTransformer> transformers = Collections.<ClassTransformer>singletonList(new AsmClassRenamer());
+
+		JarProcessor processor = new JarProcessor(transformers, threads);
 
 		processor.process(input, output);
 

@@ -22,17 +22,22 @@ import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
 
 public final class JarProcessor {
-	private final ClassTransformer transformer;
+	private final List<ClassTransformer> transformers;
 	private final int threads;
 
-	public JarProcessor(ClassTransformer transformer, int threads) {
-		if (threads <= 0) {
-			throw new IllegalArgumentException("threads must be greater than zero");
-		}
+	public JarProcessor(List<ClassTransformer> transformers, int threads) {
+	    if (transformers == null || transformers.isEmpty()) {
+	        throw new IllegalArgumentException("transformers must not be empty");
+	    }
 
-		this.transformer = transformer;
-		this.threads = threads;
+	    if (threads <= 0) {
+	        throw new IllegalArgumentException("threads must be greater than zero");
+	    }
+
+	    this.transformers = new ArrayList<ClassTransformer>(transformers);
+	    this.threads = threads;
 	}
+
 
 	public void process(Path input, Path output) throws IOException {
 		ExecutorService executor = Executors.newFixedThreadPool(threads);
@@ -103,11 +108,13 @@ public final class JarProcessor {
 	private ClassResult transformClass(String entryName, byte[] bytecode, TransformationContext context) {
 		String className = entryName.substring(0, entryName.length() - ".class".length());
 
-		byte[] transformed = transformer.transform(className, bytecode, context);
-		
-	    String outputName =
-	            context.getMapping().getClassName(className)
-	                    + ".class";
+		byte[] transformed = bytecode;
+
+		for (ClassTransformer transformer : transformers) {
+			transformed = transformer.transform(className, transformed, context);
+		}
+
+		String outputName = context.getMapping().getClassName(className) + ".class";
 
 		return new ClassResult(outputName, transformed);
 	}
