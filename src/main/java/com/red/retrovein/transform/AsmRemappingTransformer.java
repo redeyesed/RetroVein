@@ -17,7 +17,7 @@ public final class AsmRemappingTransformer implements ClassTransformer {
 
 		RemappingClassAdapter remapper = new RemappingClassAdapter(writer, new AsmRemapper(mapping));
 
-		reader.accept(remapper, 0);
+		reader.accept(remapper, ClassReader.EXPAND_FRAMES);
 
 		return writer.toByteArray();
 	}

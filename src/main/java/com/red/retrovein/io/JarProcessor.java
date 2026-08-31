@@ -17,34 +17,34 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
+import java.util.jar.Manifest;
 
 public final class JarProcessor {
 	private final List<ClassTransformer> transformers;
 	private final int threads;
 
 	public JarProcessor(List<ClassTransformer> transformers, int threads) {
-	    if (transformers == null || transformers.isEmpty()) {
-	        throw new IllegalArgumentException("transformers must not be empty");
-	    }
+		if (transformers == null || transformers.isEmpty()) {
+			throw new IllegalArgumentException("transformers must not be empty");
+		}
 
-	    if (threads <= 0) {
-	        throw new IllegalArgumentException("threads must be greater than zero");
-	    }
+		if (threads <= 0) {
+			throw new IllegalArgumentException("threads must be greater than zero");
+		}
 
-	    this.transformers = new ArrayList<ClassTransformer>(transformers);
-	    this.threads = threads;
+		this.transformers = new ArrayList<ClassTransformer>(transformers);
+
+		this.threads = threads;
 	}
-
 
 	public void process(Path input, Path output) throws IOException {
 		ExecutorService executor = Executors.newFixedThreadPool(threads);
 
-		try (JarFile jar = new JarFile(input.toFile());
-				OutputStream fileOutput = Files.newOutputStream(output);
-				JarOutputStream outputJar = new JarOutputStream(fileOutput)) {
+		try (JarFile jar = new JarFile(input.toFile())) {
 
 			JarClassScanner scanner = new JarClassScanner();
 
@@ -56,47 +56,63 @@ public final class JarProcessor {
 
 			TransformationContext context = new TransformationContext(mapping);
 
-			List<Future<ClassResult>> tasks = new ArrayList<Future<ClassResult>>();
+			Manifest manifest = createManifest(jar, mapping);
 
-			java.util.Enumeration<JarEntry> entries = jar.entries();
+			try (OutputStream fileOutput = Files.newOutputStream(output);
 
-			while (entries.hasMoreElements()) {
-				JarEntry entry = entries.nextElement();
+					JarOutputStream outputJar = new JarOutputStream(fileOutput, manifest)) {
 
-				if (entry.isDirectory()) {
-					continue;
+				List<Future<ClassResult>> tasks = new ArrayList<Future<ClassResult>>();
+
+				java.util.Enumeration<JarEntry> entries = jar.entries();
+
+				while (entries.hasMoreElements()) {
+					JarEntry entry = entries.nextElement();
+
+					if (entry.isDirectory()) {
+						continue;
+					}
+
+					/*
+					 * Manifest уже записан JarOutputStream. Поэтому не копируем его повторно.
+					 */
+					if ("META-INF/MANIFEST.MF".equalsIgnoreCase(entry.getName())) {
+						continue;
+					}
+
+					byte[] data;
+
+					try (InputStream inputStream = jar.getInputStream(entry)) {
+
+						data = readAll(inputStream);
+					}
+
+					if (entry.getName().endsWith(".class")) {
+						final String entryName = entry.getName();
+
+						final byte[] classData = data;
+
+						tasks.add(executor.submit(() -> transformClass(entryName, classData, context)));
+
+					} else {
+						writeEntry(outputJar, entry.getName(), data);
+					}
 				}
 
-				byte[] data;
+				for (Future<ClassResult> task : tasks) {
+					try {
+						ClassResult result = task.get();
 
-				try (InputStream inputStream = jar.getInputStream(entry)) {
+						writeEntry(outputJar, result.name, result.bytecode);
 
-					data = readAll(inputStream);
-				}
+					} catch (InterruptedException e) {
+						Thread.currentThread().interrupt();
 
-				if (entry.getName().endsWith(".class")) {
-					final String entryName = entry.getName();
-					final byte[] classData = data;
+						throw new IOException("Interrupted while processing JAR", e);
 
-					tasks.add(executor.submit(() -> transformClass(entryName, classData, context)));
-				} else {
-					writeEntry(outputJar, entry.getName(), data);
-				}
-			}
-
-			for (Future<ClassResult> task : tasks) {
-				try {
-					ClassResult result = task.get();
-
-					writeEntry(outputJar, result.name, result.bytecode);
-
-				} catch (InterruptedException e) {
-					Thread.currentThread().interrupt();
-
-					throw new IOException("Interrupted while processing JAR", e);
-
-				} catch (ExecutionException e) {
-					throw new IOException("Failed to transform class", e.getCause());
+					} catch (ExecutionException e) {
+						throw new IOException("Failed to transform class", e.getCause());
+					}
 				}
 			}
 
@@ -105,12 +121,59 @@ public final class JarProcessor {
 		}
 	}
 
+	private Manifest createManifest(JarFile jar, Mapping mapping) throws IOException {
+		Manifest manifest = jar.getManifest();
+
+		if (manifest == null) {
+			manifest = new Manifest();
+		} else {
+			manifest = copyManifest(manifest);
+		}
+
+		Attributes mainAttributes = manifest.getMainAttributes();
+
+		if (mainAttributes.getValue(Attributes.Name.MANIFEST_VERSION) == null) {
+
+			mainAttributes.put(Attributes.Name.MANIFEST_VERSION, "1.0");
+		}
+
+		String mainClass = mainAttributes.getValue(Attributes.Name.MAIN_CLASS);
+
+		if (mainClass != null) {
+			String internalName = mainClass.replace('.', '/');
+
+			String mappedName = mapping.getClassName(internalName);
+
+			mainAttributes.putValue(Attributes.Name.MAIN_CLASS.toString(), mappedName.replace('/', '.'));
+		}
+
+		return manifest;
+	}
+
+	private static Manifest copyManifest(Manifest source) {
+		Manifest copy = new Manifest();
+
+		copy.getMainAttributes().putAll(source.getMainAttributes());
+
+		for (String name : source.getEntries().keySet()) {
+
+			Attributes attributes = source.getAttributes(name);
+
+			if (attributes != null) {
+				copy.getEntries().put(name, new Attributes(attributes));
+			}
+		}
+
+		return copy;
+	}
+
 	private ClassResult transformClass(String entryName, byte[] bytecode, TransformationContext context) {
 		String className = entryName.substring(0, entryName.length() - ".class".length());
 
 		byte[] transformed = bytecode;
 
 		for (ClassTransformer transformer : transformers) {
+
 			transformed = transformer.transform(className, transformed, context);
 		}
 
@@ -139,6 +202,7 @@ public final class JarProcessor {
 		int count;
 
 		while ((count = input.read(buffer)) != -1) {
+
 			output.write(buffer, 0, count);
 		}
 
@@ -150,6 +214,7 @@ public final class JarProcessor {
 		private final byte[] bytecode;
 
 		private ClassResult(String name, byte[] bytecode) {
+
 			this.name = name;
 			this.bytecode = bytecode;
 		}
