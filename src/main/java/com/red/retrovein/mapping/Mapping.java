@@ -6,17 +6,21 @@ public final class Mapping {
 	private final Map<String, String> classes;
 	private final Map<String, String> methods;
 	private final Map<String, String> fields;
+	private final Map<String, String> localVariables;
 
-	public Mapping(Map<String, String> classes, Map<String, String> methods, Map<String, String> fields) {
+	public Mapping(Map<String, String> classes, Map<String, String> methods, Map<String, String> fields,
+			Map<String, String> localVariables) {
+
 		this.classes = classes;
 		this.methods = methods;
 		this.fields = fields;
+		this.localVariables = localVariables;
 	}
 
-	public String getClassName(String className) {
-		String mappedName = classes.get(className);
+	public String getClassName(String originalName) {
+		String mappedName = classes.get(originalName);
 
-		return mappedName != null ? mappedName : className;
+		return mappedName != null ? mappedName : originalName;
 	}
 
 	public String getMethodName(String owner, String name, String descriptor) {
@@ -35,15 +39,12 @@ public final class Mapping {
 		return mappedName != null ? mappedName : name;
 	}
 
-	public Map<String, String> getClasses() {
-		return classes;
-	}
+	public String getLocalVariableName(String owner, String methodName, String methodDescriptor, int index) {
 
-	public Map<String, String> getMethods() {
-		return methods;
-	}
+		String key = owner + "." + methodName + methodDescriptor + "#" + index;
 
-	public Map<String, String> getFields() {
-		return fields;
+		String mappedName = localVariables.get(key);
+
+		return mappedName != null ? mappedName : null;
 	}
 }
