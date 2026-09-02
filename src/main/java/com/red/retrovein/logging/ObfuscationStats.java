@@ -143,7 +143,7 @@ public final class ObfuscationStats {
 	}
 
 	public void printSummary() {
-		RetroLogger.section("Obfuscation Summary");
+		RetroLogger.info(LogCategory.Main, "Obfuscation Summary");
 
 		RetroLogger.info("Classes: {} scanned, {} renamed, {} skipped, {} transformed", classesScanned, classesRenamed,
 				classesSkipped, classesTransformed);

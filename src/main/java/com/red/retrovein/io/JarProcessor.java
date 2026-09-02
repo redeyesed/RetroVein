@@ -1,5 +1,6 @@
 package com.red.retrovein.io;
 
+import com.red.retrovein.logging.LogCategory;
 import com.red.retrovein.logging.RetroLogger;
 import com.red.retrovein.mapping.Mapping;
 import com.red.retrovein.mapping.MappingBuilder;
@@ -30,7 +31,6 @@ public final class JarProcessor {
 
 	public JarProcessor(List<ClassTransformer> transformers, int threads) {
 		if (transformers == null || transformers.isEmpty()) {
-
 			throw new IllegalArgumentException("transformers must not be empty");
 		}
 
@@ -44,12 +44,6 @@ public final class JarProcessor {
 	}
 
 	public void process(Path input, Path output) throws IOException {
-		RetroLogger.section("JAR Processing");
-
-		RetroLogger.info("Input: {}", input);
-		RetroLogger.info("Output: {}", output);
-		RetroLogger.info("Worker threads: {}", threads);
-
 		ExecutorService executor = Executors.newFixedThreadPool(threads);
 
 		try (JarFile jar = new JarFile(input.toFile())) {
@@ -57,8 +51,6 @@ public final class JarProcessor {
 			/*
 			 * Scan
 			 */
-			RetroLogger.section("Scanning");
-
 			JarClassScanner scanner = new JarClassScanner();
 
 			List<ClassInfo> classInfos = scanner.scan(jar);
@@ -66,23 +58,17 @@ public final class JarProcessor {
 			/*
 			 * Mapping
 			 */
-			RetroLogger.section("Mapping");
-
-			RetroLogger.info("Building mappings for {} classes", classInfos.size());
+			RetroLogger.info(LogCategory.Mapping, "Building mappings for {} classes", classInfos.size());
 
 			MappingBuilder mappingBuilder = new MappingBuilder();
 
 			Mapping mapping = mappingBuilder.build(classInfos);
-
-			RetroLogger.info("Mappings created successfully");
 
 			TransformationContext context = new TransformationContext(mapping);
 
 			/*
 			 * Manifest
 			 */
-			RetroLogger.section("Manifest");
-
 			Manifest manifest = createManifest(jar, mapping);
 
 			/*
@@ -110,7 +96,6 @@ public final class JarProcessor {
 					 * Manifest already written by JarOutputStream.
 					 */
 					if ("META-INF/MANIFEST.MF".equalsIgnoreCase(entry.getName())) {
-
 						continue;
 					}
 
@@ -130,24 +115,21 @@ public final class JarProcessor {
 						tasks.add(executor.submit(() -> transformClass(entryName, classData, context)));
 
 					} else {
-
 						resourceCount++;
 
-						RetroLogger.debug("Copying resource: {}", entry.getName());
+						RetroLogger.trace(LogCategory.Resource, "Copying resource: {}", entry.getName());
 
 						writeEntry(outputJar, entry.getName(), data);
 					}
 				}
 
-				RetroLogger.info("Submitted {} classes for transformation", tasks.size());
-				RetroLogger.info("Copying {} resources", resourceCount);
+				RetroLogger.debug(LogCategory.Transform, "Submitted {} classes for transformation", tasks.size());
 
 				int transformedClasses = 0;
 
 				for (Future<ClassResult> task : tasks) {
 
 					try {
-
 						ClassResult result = task.get();
 
 						writeEntry(outputJar, result.name, result.bytecode);
@@ -155,42 +137,41 @@ public final class JarProcessor {
 						transformedClasses++;
 
 					} catch (InterruptedException e) {
-
 						Thread.currentThread().interrupt();
 
 						throw new IOException("Interrupted while processing JAR", e);
 
 					} catch (ExecutionException e) {
-
 						throw new IOException("Failed to transform class", e.getCause());
 					}
 				}
 
-				RetroLogger.info("Transformed {} classes", transformedClasses);
+				RetroLogger.info(LogCategory.Transform, "Transformed {} classes", transformedClasses);
+				RetroLogger.info(LogCategory.Resource, "Copied {} resources", resourceCount);
 			}
 
-			RetroLogger.info("JAR written successfully");
+			RetroLogger.info(LogCategory.Jar, "JAR written successfully");
 
 		} finally {
-
 			executor.shutdown();
 
-			RetroLogger.debug("Worker executor shut down");
+			RetroLogger.debug(LogCategory.Jar, "Worker executor shut down");
 		}
 	}
 
 	private Manifest createManifest(JarFile jar, Mapping mapping) throws IOException {
+
 		Manifest manifest = jar.getManifest();
 
 		if (manifest == null) {
 
-			RetroLogger.debug("Input JAR has no manifest");
+			RetroLogger.debug(LogCategory.Jar, "Input JAR has no manifest");
 
 			manifest = new Manifest();
 
 		} else {
 
-			RetroLogger.debug("Reading input manifest");
+			RetroLogger.debug(LogCategory.Jar, "Reading input manifest");
 
 			manifest = copyManifest(manifest);
 		}
@@ -214,7 +195,7 @@ public final class JarProcessor {
 
 			mainAttributes.putValue(Attributes.Name.MAIN_CLASS.toString(), outputName);
 
-			RetroLogger.info("Manifest Main-Class: {} -> {}", mainClass, outputName);
+			RetroLogger.debug(LogCategory.Jar, "Manifest Main-Class: {} -> {}", mainClass, outputName);
 		}
 
 		return manifest;
@@ -230,7 +211,6 @@ public final class JarProcessor {
 			Attributes attributes = source.getAttributes(name);
 
 			if (attributes != null) {
-
 				copy.getEntries().put(name, new Attributes(attributes));
 			}
 		}
@@ -239,15 +219,17 @@ public final class JarProcessor {
 	}
 
 	private ClassResult transformClass(String entryName, byte[] bytecode, TransformationContext context) {
+
 		String className = entryName.substring(0, entryName.length() - ".class".length());
 
-		RetroLogger.debug("Transforming class: {}", className);
+		RetroLogger.trace(LogCategory.Transform, "Transforming class: {}", className);
 
 		byte[] transformed = bytecode;
 
 		for (ClassTransformer transformer : transformers) {
 
-			RetroLogger.debug("Applying transformer {} to {}", transformer.getClass().getSimpleName(), className);
+			RetroLogger.trace(LogCategory.Transform, "Applying transformer {} to {}",
+					transformer.getClass().getSimpleName(), className);
 
 			transformed = transformer.transform(className, transformed, context);
 		}
@@ -256,12 +238,13 @@ public final class JarProcessor {
 
 		String outputName = mappedClassName + ".class";
 
-		RetroLogger.debug("Class output: {} -> {}", className, mappedClassName);
+		RetroLogger.trace(LogCategory.Transform, "Class output: {} -> {}", className, mappedClassName);
 
 		return new ClassResult(outputName, transformed);
 	}
 
 	private static void writeEntry(JarOutputStream output, String name, byte[] data) throws IOException {
+
 		JarEntry entry = new JarEntry(name);
 
 		output.putNextEntry(entry);
@@ -274,6 +257,7 @@ public final class JarProcessor {
 	}
 
 	private static byte[] readAll(InputStream inputStream) throws IOException {
+
 		ByteArrayOutputStream output = new ByteArrayOutputStream();
 
 		byte[] buffer = new byte[8192];
@@ -281,7 +265,6 @@ public final class JarProcessor {
 		int count;
 
 		while ((count = inputStream.read(buffer)) != -1) {
-
 			output.write(buffer, 0, count);
 		}
 
@@ -293,6 +276,7 @@ public final class JarProcessor {
 		private final byte[] bytecode;
 
 		private ClassResult(String name, byte[] bytecode) {
+
 			this.name = name;
 			this.bytecode = bytecode;
 		}

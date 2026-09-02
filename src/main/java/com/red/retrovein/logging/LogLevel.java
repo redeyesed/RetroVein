@@ -1,7 +1,7 @@
 package com.red.retrovein.logging;
 
 public enum LogLevel {
-	DEBUG(0), INFO(1), WARN(2), ERROR(3);
+	TRACE(0), DEBUG(1), INFO(2), WARN(3), ERROR(4);
 
 	private final int priority;
 

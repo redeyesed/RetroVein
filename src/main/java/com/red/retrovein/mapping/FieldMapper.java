@@ -27,7 +27,7 @@ public final class FieldMapper {
 			collect(classInfo, mappings);
 		}
 
-		RetroLogger.info("Generated {} field mappings", mappings.size());
+		RetroLogger.debug("Generated {} field mappings", mappings.size());
 
 		return mappings;
 	}

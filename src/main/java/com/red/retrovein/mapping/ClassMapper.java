@@ -28,7 +28,7 @@ public final class ClassMapper {
 			RetroLogger.debug("Class mapping: {} -> {}", originalName, mappedName);
 		}
 
-		RetroLogger.info("Generated {} class mappings", mappings.size());
+		RetroLogger.debug("Generated {} class mappings", mappings.size());
 
 		return mappings;
 	}

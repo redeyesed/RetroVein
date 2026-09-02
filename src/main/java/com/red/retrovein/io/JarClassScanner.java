@@ -1,5 +1,6 @@
 package com.red.retrovein.io;
 
+import com.red.retrovein.logging.LogCategory;
 import com.red.retrovein.logging.RetroLogger;
 
 import java.io.ByteArrayOutputStream;
@@ -13,7 +14,7 @@ import java.util.jar.JarFile;
 
 public final class JarClassScanner {
 	public List<ClassInfo> scan(JarFile jar) throws IOException {
-		RetroLogger.info("Scanning JAR for classes...");
+		RetroLogger.info(LogCategory.Scan, "Scanning JAR for classes...");
 
 		List<ClassInfo> classes = new ArrayList<ClassInfo>();
 
@@ -22,7 +23,6 @@ public final class JarClassScanner {
 		int totalEntries = 0;
 
 		while (entries.hasMoreElements()) {
-
 			JarEntry entry = entries.nextElement();
 
 			totalEntries++;
@@ -38,21 +38,20 @@ public final class JarClassScanner {
 			String className = entry.getName().substring(0, entry.getName().length() - ".class".length());
 
 			try (InputStream inputStream = jar.getInputStream(entry)) {
-
 				classes.add(new ClassInfo(className, readAll(inputStream)));
 			}
 
-			RetroLogger.debug("Scanned class: {}", className);
+			RetroLogger.trace(LogCategory.Scan, "Scanned class: {}", className);
 		}
 
-		RetroLogger.info("Scanned {} JAR entries", totalEntries);
-
-		RetroLogger.info("Found {} classes", classes.size());
+		RetroLogger.info(LogCategory.Scan, "Scanned {} JAR entries", totalEntries);
+		RetroLogger.info(LogCategory.Scan, "Found {} classes", classes.size());
 
 		return classes;
 	}
 
 	private static byte[] readAll(InputStream inputStream) throws IOException {
+
 		ByteArrayOutputStream output = new ByteArrayOutputStream();
 
 		byte[] buffer = new byte[8192];
@@ -60,7 +59,6 @@ public final class JarClassScanner {
 		int count;
 
 		while ((count = inputStream.read(buffer)) != -1) {
-
 			output.write(buffer, 0, count);
 		}
 

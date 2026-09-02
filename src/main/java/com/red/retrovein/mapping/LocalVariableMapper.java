@@ -22,7 +22,7 @@ public final class LocalVariableMapper {
 			collect(classInfo, mappings);
 		}
 
-		RetroLogger.info("Generated {} local variable mappings", mappings.size());
+		RetroLogger.debug("Generated {} local variable mappings", mappings.size());
 
 		return mappings;
 	}

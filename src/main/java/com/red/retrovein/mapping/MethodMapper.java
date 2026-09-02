@@ -34,7 +34,7 @@ public final class MethodMapper {
 					classMetadata.getSuperName(), classMetadata.getInterfaces());
 		}
 
-		RetroLogger.info("Generated metadata for {} classes", metadata.size());
+		RetroLogger.debug("Generated metadata for {} classes", metadata.size());
 
 		return metadata;
 	}
@@ -47,7 +47,7 @@ public final class MethodMapper {
 			collectMethods(classInfo, metadata, methods);
 		}
 
-		RetroLogger.info("Generated {} method mappings", methods.size());
+		RetroLogger.debug("Generated {} method mappings", methods.size());
 
 		return methods;
 	}

@@ -1,6 +1,7 @@
 package com.red.retrovein.mapping;
 
 import com.red.retrovein.io.ClassInfo;
+import com.red.retrovein.logging.LogCategory;
 import com.red.retrovein.logging.RetroLogger;
 
 import java.util.ArrayList;
@@ -23,45 +24,55 @@ public final class MappingBuilder {
 	}
 
 	public Mapping build(List<ClassInfo> classInfos) {
-		RetroLogger.info("Preparing {} classes for mapping", classInfos.size());
+		RetroLogger.debug(LogCategory.Mapping, "Preparing {} classes for mapping", classInfos.size());
 
 		List<ClassInfo> sortedClasses = sortClasses(classInfos);
 
-		RetroLogger.debug("Classes sorted alphabetically");
+		RetroLogger.debug(LogCategory.Mapping, "Classes sorted alphabetically");
 
-		RetroLogger.info("Generating class mappings...");
+		RetroLogger.debug(LogCategory.Mapping, "Generating class mappings");
 
 		Map<String, String> classes = classMapper.build(sortedClasses);
 
-		RetroLogger.info("Generating class metadata...");
+		RetroLogger.debug(LogCategory.Mapping, "Generated {} class mappings", classes.size());
+
+		RetroLogger.debug(LogCategory.Mapping, "Generating class metadata");
 
 		Map<String, ClassMetadata> metadata = methodMapper.buildMetadata(sortedClasses);
 
-		RetroLogger.info("Generating field mappings...");
+		RetroLogger.debug(LogCategory.Mapping, "Generated metadata for {} classes", metadata.size());
+
+		RetroLogger.debug(LogCategory.Mapping, "Generating field mappings");
 
 		Map<String, String> fields = fieldMapper.build(sortedClasses);
 
-		RetroLogger.info("Generating method mappings...");
+		RetroLogger.debug(LogCategory.Mapping, "Generated {} field mappings", fields.size());
+
+		RetroLogger.debug(LogCategory.Mapping, "Generating method mappings");
 
 		Map<String, String> methods = methodMapper.build(sortedClasses, metadata);
 
-		RetroLogger.info("Generating local variable mappings...");
+		RetroLogger.debug(LogCategory.Mapping, "Generated {} method mappings", methods.size());
+
+		RetroLogger.debug(LogCategory.Mapping, "Generating local variable mappings");
 
 		Map<String, String> localVariables = localVariableMapper.build(sortedClasses);
 
-		RetroLogger.info("Mapping complete: " + "{} classes, " + "{} fields, " + "{} methods, " + "{} local variables",
+		RetroLogger.debug(LogCategory.Mapping, "Generated {} local variable mappings", localVariables.size());
+
+		RetroLogger.info(LogCategory.Mapping, "Generated mappings: {} classes, {} fields, {} methods, {} variables",
 				classes.size(), fields.size(), methods.size(), localVariables.size());
 
 		return new Mapping(classes, methods, fields, localVariables);
 	}
 
 	private List<ClassInfo> sortClasses(List<ClassInfo> classInfos) {
-
 		List<ClassInfo> sorted = new ArrayList<ClassInfo>(classInfos);
 
 		Collections.sort(sorted, new Comparator<ClassInfo>() {
 			@Override
 			public int compare(ClassInfo first, ClassInfo second) {
+
 				return first.getName().compareTo(second.getName());
 			}
 		});
