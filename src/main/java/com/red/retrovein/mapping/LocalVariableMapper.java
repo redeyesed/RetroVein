@@ -1,6 +1,7 @@
 package com.red.retrovein.mapping;
 
 import com.red.retrovein.io.ClassInfo;
+import com.red.retrovein.logging.RetroLogger;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -17,8 +18,11 @@ public final class LocalVariableMapper {
 		Map<String, String> mappings = new HashMap<String, String>();
 
 		for (ClassInfo classInfo : classInfos) {
+
 			collect(classInfo, mappings);
 		}
+
+		RetroLogger.info("Generated {} local variable mappings", mappings.size());
 
 		return mappings;
 	}
@@ -46,14 +50,19 @@ public final class LocalVariableMapper {
 						String mappedName = names.get(index);
 
 						if (mappedName == null) {
+
 							mappedName = localNameGenerator.next();
 
 							names.put(index, mappedName);
+
+							RetroLogger.debug("Local variable mapping: {}.{}{} #{} -> {}", classInfo.getName(), name,
+									descriptor, index, mappedName);
 						}
 
 						String key = classInfo.getName() + "." + name + descriptor + "#" + index;
 
 						if (!mappings.containsKey(key)) {
+
 							mappings.put(key, mappedName);
 						}
 					}

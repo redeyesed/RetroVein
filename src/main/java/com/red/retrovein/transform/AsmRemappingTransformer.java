@@ -1,5 +1,6 @@
 package com.red.retrovein.transform;
 
+import com.red.retrovein.logging.RetroLogger;
 import com.red.retrovein.mapping.Mapping;
 
 import org.objectweb.asm.ClassReader;
@@ -11,13 +12,14 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.commons.RemappingClassAdapter;
 
 public final class AsmRemappingTransformer implements ClassTransformer {
-
 	@Override
 	public byte[] transform(final String className, byte[] bytecode, TransformationContext context) {
+		RetroLogger.debug("ASM transform started: {} ({} bytes)", className, bytecode.length);
 
 		final Mapping mapping = context.getMapping();
 
 		ClassReader reader = new ClassReader(bytecode);
+
 		ClassWriter writer = new ClassWriter(reader, 0);
 
 		/*
@@ -36,7 +38,6 @@ public final class AsmRemappingTransformer implements ClassTransformer {
 			@Override
 			public MethodVisitor visitMethod(int access, final String name, final String descriptor, String signature,
 					String[] exceptions) {
-
 				MethodVisitor visitor = super.visitMethod(access, name, descriptor, signature, exceptions);
 
 				if (visitor == null) {
@@ -44,12 +45,11 @@ public final class AsmRemappingTransformer implements ClassTransformer {
 				}
 
 				return new MethodVisitor(Opcodes.ASM5, visitor) {
-
 					@Override
 					public void visitLocalVariable(String localName, String localDescriptor, String localSignature,
 							Label start, Label end, int index) {
-
 						if ("this".equals(localName)) {
+
 							super.visitLocalVariable(localName, localDescriptor, localSignature, start, end, index);
 
 							return;
@@ -61,6 +61,12 @@ public final class AsmRemappingTransformer implements ClassTransformer {
 							mappedName = localName;
 						}
 
+						if (!localName.equals(mappedName)) {
+
+							RetroLogger.debug("Local variable transformed: {} -> {} in {}.{}{} #{}", localName,
+									mappedName, className, name, descriptor, index);
+						}
+
 						super.visitLocalVariable(mappedName, localDescriptor, localSignature, start, end, index);
 					}
 				};
@@ -69,6 +75,10 @@ public final class AsmRemappingTransformer implements ClassTransformer {
 
 		reader.accept(localVariableRemapper, ClassReader.EXPAND_FRAMES);
 
-		return writer.toByteArray();
+		byte[] result = writer.toByteArray();
+
+		RetroLogger.debug("ASM transform complete: {} ({} -> {} bytes)", className, bytecode.length, result.length);
+
+		return result;
 	}
 }

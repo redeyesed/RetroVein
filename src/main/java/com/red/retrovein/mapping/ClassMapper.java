@@ -1,6 +1,7 @@
 package com.red.retrovein.mapping;
 
 import com.red.retrovein.io.ClassInfo;
+import com.red.retrovein.logging.RetroLogger;
 
 import java.util.HashMap;
 import java.util.List;
@@ -17,8 +18,17 @@ public final class ClassMapper {
 		Map<String, String> mappings = new HashMap<String, String>();
 
 		for (ClassInfo classInfo : classInfos) {
-			mappings.put(classInfo.getName(), nameGenerator.next());
+
+			String originalName = classInfo.getName();
+
+			String mappedName = nameGenerator.next();
+
+			mappings.put(originalName, mappedName);
+
+			RetroLogger.debug("Class mapping: {} -> {}", originalName, mappedName);
 		}
+
+		RetroLogger.info("Generated {} class mappings", mappings.size());
 
 		return mappings;
 	}

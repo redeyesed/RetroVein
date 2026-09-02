@@ -1,6 +1,7 @@
 package com.red.retrovein.mapping;
 
 import com.red.retrovein.io.ClassInfo;
+import com.red.retrovein.logging.RetroLogger;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -24,8 +25,16 @@ public final class MethodMapper {
 		Map<String, ClassMetadata> metadata = new HashMap<String, ClassMetadata>();
 
 		for (ClassInfo classInfo : classInfos) {
-			metadata.put(classInfo.getName(), readMetadata(classInfo));
+
+			ClassMetadata classMetadata = readMetadata(classInfo);
+
+			metadata.put(classInfo.getName(), classMetadata);
+
+			RetroLogger.debug("Metadata: {} extends {} implements {}", classInfo.getName(),
+					classMetadata.getSuperName(), classMetadata.getInterfaces());
 		}
+
+		RetroLogger.info("Generated metadata for {} classes", metadata.size());
 
 		return metadata;
 	}
@@ -34,8 +43,11 @@ public final class MethodMapper {
 		Map<String, String> methods = new HashMap<String, String>();
 
 		for (ClassInfo classInfo : classInfos) {
+
 			collectMethods(classInfo, metadata, methods);
 		}
+
+		RetroLogger.info("Generated {} method mappings", methods.size());
 
 		return methods;
 	}
@@ -53,7 +65,9 @@ public final class MethodMapper {
 				metadata.setSuperName(superName);
 
 				if (interfaces != null) {
+
 					for (String interfaceName : interfaces) {
+
 						metadata.addInterface(interfaceName);
 					}
 				}
@@ -73,19 +87,23 @@ public final class MethodMapper {
 			@Override
 			public MethodVisitor visitMethod(int access, String name, String descriptor, String signature,
 					String[] exceptions) {
-
 				/*
 				 * Constructors cannot be renamed.
 				 */
 				if ("<init>".equals(name) || "<clinit>".equals(name)) {
 
+					RetroLogger.debug("Skipping constructor/static initializer: {}.{}{}", classInfo.getName(), name,
+							descriptor);
+
 					return null;
 				}
 
 				/*
-				 * The JVM entry point must retain the "main" method name.
+				 * JVM entry point must retain the "main" method name.
 				 */
 				if ("main".equals(name) && "([Ljava/lang/String;)V".equals(descriptor)) {
+
+					RetroLogger.debug("Skipping JVM entry point: {}.main{}", classInfo.getName(), descriptor);
 
 					return null;
 				}
@@ -94,6 +112,7 @@ public final class MethodMapper {
 				 * Private methods do not participate in overriding.
 				 */
 				if ((access & Opcodes.ACC_PRIVATE) != 0) {
+
 					createMethodMapping(classInfo.getName(), name, descriptor, methods);
 
 					return null;
@@ -102,8 +121,17 @@ public final class MethodMapper {
 				String overriddenKey = findOverriddenMethod(classInfo.getName(), name, descriptor, metadata, methods);
 
 				if (overriddenKey != null) {
-					methods.put(createMethodKey(classInfo.getName(), name, descriptor), methods.get(overriddenKey));
+
+					String key = createMethodKey(classInfo.getName(), name, descriptor);
+
+					String mappedName = methods.get(overriddenKey);
+
+					methods.put(key, mappedName);
+
+					RetroLogger.debug("Method override mapping: {} -> {} (from {})", key, mappedName, overriddenKey);
+
 				} else {
+
 					createMethodMapping(classInfo.getName(), name, descriptor, methods);
 				}
 
@@ -116,7 +144,11 @@ public final class MethodMapper {
 	private void createMethodMapping(String owner, String name, String descriptor, Map<String, String> methods) {
 		String key = createMethodKey(owner, name, descriptor);
 
-		methods.put(key, nameGenerator.next());
+		String mappedName = nameGenerator.next();
+
+		methods.put(key, mappedName);
+
+		RetroLogger.debug("Method mapping: {} -> {}", key, mappedName);
 	}
 
 	private String findOverriddenMethod(String owner, String name, String descriptor,
@@ -124,6 +156,9 @@ public final class MethodMapper {
 		ClassMetadata current = metadata.get(owner);
 
 		if (current == null) {
+
+			RetroLogger.debug("No metadata found for {}", owner);
+
 			return null;
 		}
 
@@ -137,6 +172,9 @@ public final class MethodMapper {
 			String key = createMethodKey(superName, name, descriptor);
 
 			if (methods.containsKey(key)) {
+
+				RetroLogger.debug("Found overridden method in superclass: {}", key);
+
 				return key;
 			}
 
@@ -154,7 +192,14 @@ public final class MethodMapper {
 		 */
 		Set<String> visited = new HashSet<String>();
 
-		return findInterfaceMethod(current, name, descriptor, metadata, methods, visited);
+		String result = findInterfaceMethod(current, name, descriptor, metadata, methods, visited);
+
+		if (result != null) {
+
+			RetroLogger.debug("Found overridden method in interface: {}", result);
+		}
+
+		return result;
 	}
 
 	private String findInterfaceMethod(ClassMetadata metadataEntry, String name, String descriptor,

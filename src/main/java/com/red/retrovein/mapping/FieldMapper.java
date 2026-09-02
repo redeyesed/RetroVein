@@ -1,6 +1,7 @@
 package com.red.retrovein.mapping;
 
 import com.red.retrovein.io.ClassInfo;
+import com.red.retrovein.logging.RetroLogger;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -22,8 +23,11 @@ public final class FieldMapper {
 		Map<String, String> mappings = new HashMap<String, String>();
 
 		for (ClassInfo classInfo : classInfos) {
+
 			collect(classInfo, mappings);
 		}
+
+		RetroLogger.info("Generated {} field mappings", mappings.size());
 
 		return mappings;
 	}
@@ -37,7 +41,11 @@ public final class FieldMapper {
 			public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
 				String key = classInfo.getName() + "." + name + ":" + descriptor;
 
-				mappings.put(key, nameGenerator.next());
+				String mappedName = nameGenerator.next();
+
+				mappings.put(key, mappedName);
+
+				RetroLogger.debug("Field mapping: {} -> {}", key, mappedName);
 
 				return null;
 			}

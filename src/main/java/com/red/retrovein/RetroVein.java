@@ -1,6 +1,8 @@
 package com.red.retrovein;
 
 import com.red.retrovein.io.JarProcessor;
+import com.red.retrovein.logging.LogLevel;
+import com.red.retrovein.logging.RetroLogger;
 import com.red.retrovein.transform.AsmRemappingTransformer;
 import com.red.retrovein.transform.ClassTransformer;
 
@@ -10,13 +12,22 @@ import java.util.Collections;
 import java.util.List;
 
 public final class RetroVein {
+	private static final String VERSION = "0.1.0";
+
 	private RetroVein() {
 	}
 
 	public static void main(String[] args) throws Exception {
-		if (args.length != 2) {
-			System.out.println("Usage: retrovein <input.jar> <output.jar>");
+		if (args.length < 2 || args.length > 3) {
+			printUsage();
 			System.exit(1);
+			return;
+		}
+
+		boolean debug = args.length == 3 && "--debug".equalsIgnoreCase(args[2]);
+
+		if (debug) {
+			RetroLogger.setLevel(LogLevel.DEBUG);
 		}
 
 		Path input = Paths.get(args[0]);
@@ -24,22 +35,47 @@ public final class RetroVein {
 
 		int threads = Runtime.getRuntime().availableProcessors();
 
-		System.out.println("RetroVein 0.1.0");
-		System.out.println("Input: " + input);
-		System.out.println("Output: " + output);
-		System.out.println("Threads: " + threads);
+		RetroLogger.section("RetroVein");
+
+		RetroLogger.info("Version: {}", VERSION);
+		RetroLogger.info("Input: {}", input);
+		RetroLogger.info("Output: {}", output);
+		RetroLogger.info("Threads: {}", threads);
+		RetroLogger.info("Log level: {}", RetroLogger.getLevel());
 
 		long start = System.nanoTime();
 
-		List<ClassTransformer> transformers = Collections
-				.<ClassTransformer>singletonList(new AsmRemappingTransformer());
+		try {
+			RetroLogger.section("Initialization");
 
-		JarProcessor processor = new JarProcessor(transformers, threads);
+			List<ClassTransformer> transformers = Collections
+					.<ClassTransformer>singletonList(new AsmRemappingTransformer());
 
-		processor.process(input, output);
+			RetroLogger.info("Loaded {} transformer(s)", transformers.size());
 
-		long elapsed = System.nanoTime() - start;
+			JarProcessor processor = new JarProcessor(transformers, threads);
 
-		System.out.println("Completed in " + (elapsed / 1_000_000L) + " ms");
+			RetroLogger.info("Starting obfuscation...");
+
+			processor.process(input, output);
+
+			long elapsed = (System.nanoTime() - start) / 1_000_000L;
+
+			RetroLogger.section("Completed");
+
+			RetroLogger.info("Output: {}", output);
+
+			RetroLogger.info("Completed in {} ms", elapsed);
+
+		} catch (Exception exception) {
+
+			RetroLogger.error("Obfuscation failed", exception);
+
+			System.exit(1);
+		}
+	}
+
+	private static void printUsage() {
+		System.out.println("Usage: RetroVein " + "<input.jar> " + "<output.jar> " + "[--debug]");
 	}
 }
