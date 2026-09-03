@@ -41,7 +41,7 @@ public final class FieldMapper {
 			public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
 				String key = classInfo.getName() + "." + name + ":" + descriptor;
 
-				String mappedName = nameGenerator.next();
+				String mappedName = nameGenerator.nextField();
 
 				mappings.put(key, mappedName);
 

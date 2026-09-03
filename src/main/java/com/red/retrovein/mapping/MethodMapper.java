@@ -144,7 +144,7 @@ public final class MethodMapper {
 	private void createMethodMapping(String owner, String name, String descriptor, Map<String, String> methods) {
 		String key = createMethodKey(owner, name, descriptor);
 
-		String mappedName = nameGenerator.next();
+		String mappedName = nameGenerator.nextMethod();
 
 		methods.put(key, mappedName);
 
