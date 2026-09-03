@@ -13,12 +13,6 @@ import java.util.List;
 import java.util.Map;
 
 public final class FieldMapper {
-	private final NameGenerator nameGenerator;
-
-	public FieldMapper() {
-		this.nameGenerator = new NameGenerator();
-	}
-
 	public Map<String, String> build(List<ClassInfo> classInfos) {
 		Map<String, String> mappings = new HashMap<String, String>();
 
@@ -33,6 +27,7 @@ public final class FieldMapper {
 	}
 
 	private void collect(final ClassInfo classInfo, final Map<String, String> mappings) {
+	    final NameGenerator nameGenerator = new NameGenerator();
 		ClassReader reader = new ClassReader(classInfo.getBytecode());
 
 		reader.accept(new ClassVisitor(Opcodes.ASM5) {

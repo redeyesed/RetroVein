@@ -15,12 +15,6 @@ import java.util.Map;
 import java.util.Set;
 
 public final class MethodMapper {
-	private final NameGenerator nameGenerator;
-
-	public MethodMapper() {
-		this.nameGenerator = new NameGenerator();
-	}
-
 	public Map<String, ClassMetadata> buildMetadata(List<ClassInfo> classInfos) {
 		Map<String, ClassMetadata> metadata = new HashMap<String, ClassMetadata>();
 
@@ -80,6 +74,7 @@ public final class MethodMapper {
 
 	private void collectMethods(final ClassInfo classInfo, final Map<String, ClassMetadata> metadata,
 			final Map<String, String> methods) {
+		final NameGenerator nameGenerator = new NameGenerator();
 		ClassReader reader = new ClassReader(classInfo.getBytecode());
 
 		reader.accept(new ClassVisitor(Opcodes.ASM5) {
@@ -113,7 +108,7 @@ public final class MethodMapper {
 				 */
 				if ((access & Opcodes.ACC_PRIVATE) != 0) {
 
-					createMethodMapping(classInfo.getName(), name, descriptor, methods);
+					createMethodMapping(classInfo.getName(), name, descriptor, methods, nameGenerator);
 
 					return null;
 				}
@@ -132,7 +127,7 @@ public final class MethodMapper {
 
 				} else {
 
-					createMethodMapping(classInfo.getName(), name, descriptor, methods);
+					createMethodMapping(classInfo.getName(), name, descriptor, methods, nameGenerator);
 				}
 
 				return null;
@@ -141,7 +136,8 @@ public final class MethodMapper {
 		}, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
 	}
 
-	private void createMethodMapping(String owner, String name, String descriptor, Map<String, String> methods) {
+	private void createMethodMapping(String owner, String name, String descriptor, Map<String, String> methods,
+			NameGenerator nameGenerator) {
 		String key = createMethodKey(owner, name, descriptor);
 
 		String mappedName = nameGenerator.nextMethod();
