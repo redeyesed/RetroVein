@@ -1,23 +1,27 @@
 package com.red.retrovein.mapping;
 
-public final class NameGenerator {
-	private int counter;
-
-	public NameGenerator() {
-		this.counter = 0;
-	}
+public class NameGenerator {
+	private int counter = 1;
 
 	public String next() {
 		return encode(counter++);
 	}
 
-	private String encode(int value) {
+	public static String encode(int value) {
+		if (value <= 0) {
+			throw new IllegalArgumentException("Value must be positive");
+		}
+
 		StringBuilder result = new StringBuilder();
 
-		do {
-			result.append((char) ('a' + (value % 26)));
-			value = value / 26;
-		} while (value > 0);
+		while (value > 0) {
+			value--;
+
+			int digit = value % 26;
+			result.append((char) ('a' + digit));
+
+			value /= 26;
+		}
 
 		return result.reverse().toString();
 	}
