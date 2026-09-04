@@ -1,38 +1,36 @@
 package com.red.retrovein.mapping;
 
 public class NameGenerator {
-	private int counter;
+	private int classCounter = 1;
 	private int variableCounter;
 	private int parameterCounter;
 	private int fieldCounter;
 	private int methodCounter;
 
-	public NameGenerator() {
-		this.counter = 1;
-		this.variableCounter = 0;
-		this.parameterCounter = 0;
-		this.fieldCounter = 0;
-		this.methodCounter = 0;
-	}
-
 	public String next() {
-		return encode(counter++);
+		return generate(NameType.CLASS, classCounter++);
 	}
 
 	public String nextVariable() {
-		return "var" + (++variableCounter);
+		return generate(NameType.VARIABLE, ++variableCounter);
 	}
 
 	public String nextParameter() {
-		return "par" + (++parameterCounter);
+		return generate(NameType.PARAMETER, ++parameterCounter);
 	}
 
 	public String nextField() {
-		return "field" + (++fieldCounter);
+		return generate(NameType.FIELD, ++fieldCounter);
 	}
 
 	public String nextMethod() {
-		return "method" + (++methodCounter);
+		return generate(NameType.METHOD, ++methodCounter);
+	}
+
+	private String generate(NameType type, int counter) {
+		String value = type.isEncoded() ? encode(counter) : String.valueOf(counter);
+
+		return type.getPrefix() + value;
 	}
 
 	public static String encode(int value) {
