@@ -4,6 +4,7 @@ import com.red.retrovein.logging.LogCategory;
 import com.red.retrovein.logging.RetroLogger;
 import com.red.retrovein.mapping.Mapping;
 import com.red.retrovein.mapping.MappingBuilder;
+import com.red.retrovein.mapping.file.MappingWriter;
 import com.red.retrovein.transform.ClassTransformer;
 import com.red.retrovein.transform.TransformationContext;
 
@@ -39,7 +40,6 @@ public final class JarProcessor {
 		}
 
 		this.transformers = new ArrayList<ClassTransformer>(transformers);
-
 		this.threads = threads;
 	}
 
@@ -75,7 +75,6 @@ public final class JarProcessor {
 			 * Output
 			 */
 			try (OutputStream fileOutput = Files.newOutputStream(output);
-
 					JarOutputStream outputJar = new JarOutputStream(fileOutput, manifest)) {
 
 				List<Future<ClassResult>> tasks = new ArrayList<Future<ClassResult>>();
@@ -85,7 +84,6 @@ public final class JarProcessor {
 				int resourceCount = 0;
 
 				while (entries.hasMoreElements()) {
-
 					JarEntry entry = entries.nextElement();
 
 					if (entry.isDirectory()) {
@@ -109,12 +107,11 @@ public final class JarProcessor {
 					if (entry.getName().endsWith(".class")) {
 
 						final String entryName = entry.getName();
-
 						final byte[] classData = data;
 
 						tasks.add(executor.submit(() -> transformClass(entryName, classData, context)));
-
 					} else {
+
 						resourceCount++;
 
 						RetroLogger.trace(LogCategory.Resource, "Copying resource: {}", entry.getName());
@@ -137,26 +134,53 @@ public final class JarProcessor {
 						transformedClasses++;
 
 					} catch (InterruptedException e) {
+
 						Thread.currentThread().interrupt();
 
 						throw new IOException("Interrupted while processing JAR", e);
 
 					} catch (ExecutionException e) {
+
 						throw new IOException("Failed to transform class", e.getCause());
 					}
 				}
 
 				RetroLogger.info(LogCategory.Transform, "Transformed {} classes", transformedClasses);
+
 				RetroLogger.info(LogCategory.Resource, "Copied {} resources", resourceCount);
 			}
 
 			RetroLogger.info(LogCategory.Jar, "JAR written successfully");
 
+			/*
+			 * Mapping
+			 */
+
+			Path mappingOutput = getMappingOutputPath(output);
+
+			MappingWriter mappingWriter = new MappingWriter();
+
+			mappingWriter.write(mapping, mappingOutput);
+
+			RetroLogger.info(LogCategory.Mapping, "Mapping written to {}", mappingOutput);
 		} finally {
+
 			executor.shutdown();
 
 			RetroLogger.debug(LogCategory.Jar, "Worker executor shut down");
 		}
+	}
+
+	private static Path getMappingOutputPath(Path output) {
+		String fileName = output.getFileName().toString();
+
+		int extensionIndex = fileName.lastIndexOf('.');
+
+		if (extensionIndex == -1) {
+			return output.resolveSibling(fileName + ".rvm");
+		}
+
+		return output.resolveSibling(fileName.substring(0, extensionIndex) + ".rvm");
 	}
 
 	private Manifest createManifest(JarFile jar, Mapping mapping) throws IOException {
@@ -211,6 +235,7 @@ public final class JarProcessor {
 			Attributes attributes = source.getAttributes(name);
 
 			if (attributes != null) {
+
 				copy.getEntries().put(name, new Attributes(attributes));
 			}
 		}
@@ -219,7 +244,6 @@ public final class JarProcessor {
 	}
 
 	private ClassResult transformClass(String entryName, byte[] bytecode, TransformationContext context) {
-
 		String className = entryName.substring(0, entryName.length() - ".class".length());
 
 		RetroLogger.trace(LogCategory.Transform, "Transforming class: {}", className);
@@ -244,7 +268,6 @@ public final class JarProcessor {
 	}
 
 	private static void writeEntry(JarOutputStream output, String name, byte[] data) throws IOException {
-
 		JarEntry entry = new JarEntry(name);
 
 		output.putNextEntry(entry);
@@ -257,7 +280,6 @@ public final class JarProcessor {
 	}
 
 	private static byte[] readAll(InputStream inputStream) throws IOException {
-
 		ByteArrayOutputStream output = new ByteArrayOutputStream();
 
 		byte[] buffer = new byte[8192];
@@ -276,7 +298,6 @@ public final class JarProcessor {
 		private final byte[] bytecode;
 
 		private ClassResult(String name, byte[] bytecode) {
-
 			this.name = name;
 			this.bytecode = bytecode;
 		}
