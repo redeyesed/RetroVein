@@ -1,5 +1,6 @@
 package com.red.retrovein.mapping;
 
+import java.util.Collections;
 import java.util.Map;
 
 public final class Mapping {
@@ -10,10 +11,10 @@ public final class Mapping {
 
 	public Mapping(Map<String, String> classes, Map<String, String> methods, Map<String, String> fields,
 			Map<String, String> localVariables) {
-		this.classes = classes;
-		this.methods = methods;
-		this.fields = fields;
-		this.localVariables = localVariables;
+		this.classes = Collections.unmodifiableMap(classes);
+		this.methods = Collections.unmodifiableMap(methods);
+		this.fields = Collections.unmodifiableMap(fields);
+		this.localVariables = Collections.unmodifiableMap(localVariables);
 	}
 
 	public String getClassName(String originalName) {
@@ -41,5 +42,21 @@ public final class Mapping {
 		String mappedName = localVariables.get(key);
 
 		return mappedName != null ? mappedName : null;
+	}
+
+	public Map<String, String> getClasses() {
+		return classes;
+	}
+
+	public Map<String, String> getMethods() {
+		return methods;
+	}
+
+	public Map<String, String> getFields() {
+		return fields;
+	}
+
+	public Map<String, String> getLocalVariables() {
+		return localVariables;
 	}
 }
