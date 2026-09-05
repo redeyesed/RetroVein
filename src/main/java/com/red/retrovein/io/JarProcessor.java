@@ -74,6 +74,12 @@ public final class JarProcessor {
 			/*
 			 * Output
 			 */
+			Path outputParent = output.getParent();
+
+			if (outputParent != null) {
+				Files.createDirectories(outputParent);
+			}
+
 			try (OutputStream fileOutput = Files.newOutputStream(output);
 					JarOutputStream outputJar = new JarOutputStream(fileOutput, manifest)) {
 
