@@ -1,7 +1,10 @@
 package com.red.retrovein.transform;
 
+import com.red.retrovein.logging.LogCategory;
 import com.red.retrovein.logging.RetroLogger;
 import com.red.retrovein.mapping.Mapping;
+import com.red.retrovein.reflection.ReflectionAnalyzer;
+import com.red.retrovein.reflection.ReflectionReference;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -11,9 +14,15 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.commons.RemappingClassAdapter;
 
+import java.util.List;
+
 public final class AsmRemappingTransformer implements ClassTransformer {
+	private final ReflectionAnalyzer reflectionAnalyzer = new ReflectionAnalyzer();
+
 	@Override
 	public byte[] transform(final String className, byte[] bytecode, TransformationContext context) {
+		analyzeReflection(className, bytecode);
+
 		RetroLogger.debug("ASM transform started: {} ({} bytes)", className, bytecode.length);
 
 		final Mapping mapping = context.getMapping();
@@ -38,6 +47,7 @@ public final class AsmRemappingTransformer implements ClassTransformer {
 			@Override
 			public MethodVisitor visitMethod(int access, final String name, final String descriptor, String signature,
 					String[] exceptions) {
+
 				MethodVisitor visitor = super.visitMethod(access, name, descriptor, signature, exceptions);
 
 				if (visitor == null) {
@@ -45,6 +55,7 @@ public final class AsmRemappingTransformer implements ClassTransformer {
 				}
 
 				return new MethodVisitor(Opcodes.ASM5, visitor) {
+
 					@Override
 					public void visitLocalVariable(String localName, String localDescriptor, String localSignature,
 							Label start, Label end, int index) {
@@ -80,5 +91,36 @@ public final class AsmRemappingTransformer implements ClassTransformer {
 		RetroLogger.debug("ASM transform complete: {} ({} -> {} bytes)", className, bytecode.length, result.length);
 
 		return result;
+	}
+
+	/**
+	 * Анализирует reflection-вызовы в исходном байткоде.
+	 *
+	 * На данном этапе метод только собирает найденные reflection-ссылки и выводит
+	 * их в лог.
+	 *
+	 * Сам байткод здесь не изменяется.
+	 */
+	private void analyzeReflection(String className, byte[] bytecode) {
+		List<ReflectionReference> references = reflectionAnalyzer.analyze(className, bytecode);
+
+		if (references.isEmpty()) {
+			return;
+		}
+
+		RetroLogger.debug(LogCategory.Transform, "Reflection references found in {}: {}", className, references.size());
+
+		for (ReflectionReference reference : references) {
+
+			String value = reference.getValue();
+
+			if (value == null) {
+				value = "<dynamic>";
+			}
+
+			RetroLogger.debug(LogCategory.Transform, "Reflection: {}.{}{} -> {} {} [{}]", reference.getOwnerClass(),
+					reference.getOwnerMethod(), reference.getOwnerDescriptor(), reference.getType(), value,
+					reference.getConfidence());
+		}
 	}
 }
