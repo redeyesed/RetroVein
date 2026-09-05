@@ -7,8 +7,11 @@ import com.red.retrovein.logging.RetroLogger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public final class MappingBuilder {
 	private final ClassMapper classMapper;
@@ -50,7 +53,8 @@ public final class MappingBuilder {
 
 		RetroLogger.debug(LogCategory.Mapping, "Generating method mappings");
 
-		Map<String, String> methods = methodMapper.build(sortedClasses, metadata);
+		List<ClassInfo> methodClasses = sortByInheritance(sortedClasses, metadata);
+		Map<String, String> methods = methodMapper.build(methodClasses, metadata);
 
 		RetroLogger.debug(LogCategory.Mapping, "Generated {} method mappings", methods.size());
 
@@ -78,5 +82,86 @@ public final class MappingBuilder {
 		});
 
 		return sorted;
+	}
+
+	/**
+	 * Сортирует классы так, чтобы родительские классы и интерфейсы обрабатывались
+	 * раньше классов, которые от них наследуются.
+	 *
+	 * Это необходимо для корректного переиспользования имён переопределённых
+	 * методов.
+	 */
+	private List<ClassInfo> sortByInheritance(List<ClassInfo> sortedClasses, Map<String, ClassMetadata> metadata) {
+
+		Map<String, ClassInfo> classesByName = new HashMap<String, ClassInfo>();
+
+		for (ClassInfo classInfo : sortedClasses) {
+			classesByName.put(classInfo.getName(), classInfo);
+		}
+
+		List<ClassInfo> result = new ArrayList<ClassInfo>();
+		Set<String> visited = new HashSet<String>();
+		Set<String> visiting = new HashSet<String>();
+
+		for (ClassInfo classInfo : sortedClasses) {
+			visitClass(classInfo.getName(), classesByName, metadata, visited, visiting, result);
+		}
+
+		return result;
+	}
+
+	/**
+	 * Рекурсивно добавляет родительские классы и интерфейсы перед текущим классом.
+	 */
+	private void visitClass(String className, Map<String, ClassInfo> classesByName, Map<String, ClassMetadata> metadata,
+			Set<String> visited, Set<String> visiting, List<ClassInfo> result) {
+		if (visited.contains(className)) {
+			return;
+		}
+
+		/*
+		 * Корректная Java-иерархия не должна содержать циклов. Проверка защищает от
+		 * бесконечной рекурсии на повреждённом bytecode.
+		 */
+		if (!visiting.add(className)) {
+			RetroLogger.warn(LogCategory.Mapping, "Inheritance cycle detected involving {}", className);
+			return;
+		}
+
+		ClassMetadata classMetadata = metadata.get(className);
+
+		if (classMetadata != null) {
+			/*
+			 * Сначала обрабатываем родительский класс.
+			 */
+			String superName = classMetadata.getSuperName();
+
+			if (superName != null && classesByName.containsKey(superName)) {
+				visitClass(superName, classesByName, metadata, visited, visiting, result);
+			}
+
+			/*
+			 * Интерфейсы обрабатываем в алфавитном порядке, чтобы результат не зависел от
+			 * порядка их объявления.
+			 */
+			List<String> interfaces = new ArrayList<String>(classMetadata.getInterfaces());
+
+			Collections.sort(interfaces);
+
+			for (String interfaceName : interfaces) {
+				if (classesByName.containsKey(interfaceName)) {
+					visitClass(interfaceName, classesByName, metadata, visited, visiting, result);
+				}
+			}
+		}
+
+		visiting.remove(className);
+		visited.add(className);
+
+		ClassInfo classInfo = classesByName.get(className);
+
+		if (classInfo != null) {
+			result.add(classInfo);
+		}
 	}
 }
