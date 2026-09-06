@@ -23,8 +23,21 @@ public final class Mapping {
 		return mappedName != null ? mappedName : originalName;
 	}
 
+	public String getClassNameFromJavaName(String originalName) {
+		if (originalName == null) {
+			return null;
+		}
+
+		String internalName = originalName.replace('.', '/');
+
+		String mappedName = getClassName(internalName);
+
+		return mappedName.replace('/', '.');
+	}
+
 	public String getMethodName(String owner, String name, String descriptor) {
 		String key = owner + "." + name + descriptor;
+
 		String mappedName = methods.get(key);
 
 		return mappedName != null ? mappedName : name;
@@ -32,6 +45,7 @@ public final class Mapping {
 
 	public String getFieldName(String owner, String name, String descriptor) {
 		String key = owner + "." + name + ":" + descriptor;
+
 		String mappedName = fields.get(key);
 
 		return mappedName != null ? mappedName : name;
@@ -39,9 +53,38 @@ public final class Mapping {
 
 	public String getLocalVariableName(String owner, String methodName, String methodDescriptor, int index) {
 		String key = owner + "." + methodName + methodDescriptor + "#" + index;
+
 		String mappedName = localVariables.get(key);
 
-		return mappedName != null ? mappedName : null;
+		return mappedName;
+	}
+
+	public String findMappedMethodName(String owner, String name) {
+		String prefix = owner + "." + name;
+
+		for (Map.Entry<String, String> entry : methods.entrySet()) {
+			String key = entry.getKey();
+
+			if (key.startsWith(prefix)) {
+				return entry.getValue();
+			}
+		}
+
+		return name;
+	}
+
+	public String findMappedFieldName(String owner, String name) {
+		String prefix = owner + "." + name + ":";
+
+		for (Map.Entry<String, String> entry : fields.entrySet()) {
+			String key = entry.getKey();
+
+			if (key.startsWith(prefix)) {
+				return entry.getValue();
+			}
+		}
+
+		return name;
 	}
 
 	public Map<String, String> getClasses() {
