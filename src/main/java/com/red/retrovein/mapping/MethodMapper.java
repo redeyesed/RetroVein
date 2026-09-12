@@ -15,6 +15,11 @@ import java.util.Map;
 import java.util.Set;
 
 public final class MethodMapper {
+	private final ExternalClassResolver externalResolver;
+
+	public MethodMapper() {
+		this.externalResolver = new ExternalClassResolver();
+	}
 
 	public Map<String, ClassMetadata> buildMetadata(List<ClassInfo> classInfos) {
 		Map<String, ClassMetadata> metadata = new HashMap<String, ClassMetadata>();
@@ -59,6 +64,7 @@ public final class MethodMapper {
 
 				if (interfaces != null) {
 					for (String interfaceName : interfaces) {
+
 						metadata.addInterface(interfaceName);
 					}
 				}
@@ -91,17 +97,11 @@ public final class MethodMapper {
 			@Override
 			public MethodVisitor visitMethod(int access, String name, String descriptor, String signature,
 					String[] exceptions) {
-				/*
-				 * Constructors cannot be renamed.
-				 */
 				if ("<init>".equals(name) || "<clinit>".equals(name)) {
 
 					return null;
 				}
 
-				/*
-				 * JVM entry point.
-				 */
 				if ("main".equals(name) && "([Ljava/lang/String;)V".equals(descriptor)) {
 
 					RetroLogger.debug("Keeping JVM entry point: {}.main{}", classInfo.getName(), descriptor);
@@ -109,42 +109,59 @@ public final class MethodMapper {
 					return null;
 				}
 
-				/*
-				 * IMPORTANT:
-				 *
-				 * Public/protected methods may be part of Minecraft/Forge contracts.
-				 *
-				 * We don't know the external superclass bytecode yet, therefore they are kept
-				 * unchanged.
-				 */
-				if ((access & Opcodes.ACC_PUBLIC) != 0 || (access & Opcodes.ACC_PROTECTED) != 0) {
+				boolean publicMethod = (access & Opcodes.ACC_PUBLIC) != 0;
 
-					RetroLogger.debug("Keeping externally visible method: {}.{}{}", classInfo.getName(), name,
+				boolean protectedMethod = (access & Opcodes.ACC_PROTECTED) != 0;
+
+				boolean privateMethod = (access & Opcodes.ACC_PRIVATE) != 0;
+
+				/*
+				 * Private methods cannot override anything. They are always safe to rename.
+				 */
+				if (privateMethod) {
+					createMethodMapping(classInfo.getName(), name, descriptor, methods, nameGenerator);
+
+					return null;
+				}
+
+				/*
+				 * Look for an existing method in the module or in an external
+				 * superclass/interface.
+				 */
+				MethodResolution resolution = findOverriddenMethod(classInfo.getName(), name, descriptor, metadata,
+						methods);
+
+				if (resolution.isFound()) {
+					/*
+					 * The method belongs to an existing contract, so its name must remain
+					 * compatible.
+					 */
+					if (resolution.getMappedName() != null) {
+						String key = createMethodKey(classInfo.getName(), name, descriptor);
+
+						methods.put(key, resolution.getMappedName());
+
+						RetroLogger.debug("Keeping override mapping: {} -> {}", key, resolution.getMappedName());
+					}
+
+					return null;
+				}
+
+				/*
+				 * If we couldn't inspect an externally visible method, fail safely and keep its
+				 * original name.
+				 */
+				if ((publicMethod || protectedMethod) && resolution.isExternalUnknown()) {
+
+					RetroLogger.debug("Keeping unresolved external method: {}.{}{}", classInfo.getName(), name,
 							descriptor);
 
 					return null;
 				}
 
 				/*
-				 * Package-private and private methods are currently considered internal to the
-				 * mod.
+				 * The method has no known external contract. It can be renamed.
 				 */
-				String overriddenKey = findOverriddenMethod(classInfo.getName(), name, descriptor, metadata, methods);
-
-				if (overriddenKey != null) {
-					String key = createMethodKey(classInfo.getName(), name, descriptor);
-
-					String mappedName = methods.get(overriddenKey);
-
-					if (mappedName != null) {
-						methods.put(key, mappedName);
-
-						RetroLogger.debug("Method override mapping: {} -> {}", key, mappedName);
-
-						return null;
-					}
-				}
-
 				createMethodMapping(classInfo.getName(), name, descriptor, methods, nameGenerator);
 
 				return null;
@@ -164,52 +181,87 @@ public final class MethodMapper {
 		RetroLogger.debug("Method mapping: {} -> {}", key, mappedName);
 	}
 
-	private String findOverriddenMethod(String owner, String name, String descriptor,
+	private MethodResolution findOverriddenMethod(String owner, String name, String descriptor,
 			Map<String, ClassMetadata> metadata, Map<String, String> methods) {
 		ClassMetadata current = metadata.get(owner);
 
 		if (current == null) {
-			return null;
+			return MethodResolution.notFound();
 		}
 
 		/*
-		 * Superclass chain.
+		 * First inspect superclass hierarchy.
 		 */
 		String superName = current.getSuperName();
 
+		Set<String> visited = new HashSet<String>();
+
 		while (superName != null) {
+
+			if (!visited.add(superName)) {
+				break;
+			}
 
 			String key = createMethodKey(superName, name, descriptor);
 
+			/*
+			 * Method belongs to a module class and already has a mapping. Reuse it.
+			 */
 			if (methods.containsKey(key)) {
-				return key;
+				return MethodResolution.found(methods.get(key));
 			}
 
 			ClassMetadata superMetadata = metadata.get(superName);
 
 			/*
-			 * The superclass is external to the mod.
-			 *
-			 * We currently cannot inspect it safely.
+			 * Module superclass.
 			 */
-			if (superMetadata == null) {
-				break;
+			if (superMetadata != null) {
+
+				if (superMetadata.hasMethod(name, descriptor)) {
+					String mappedName = methods.get(key);
+
+					return MethodResolution.found(mappedName);
+				}
+
+				superName = superMetadata.getSuperName();
+
+				continue;
 			}
 
-			superName = superMetadata.getSuperName();
+			/*
+			 * External superclass.
+			 */
+			ClassMetadata externalMetadata = externalResolver.resolve(superName);
+
+			if (externalMetadata == null) {
+				return MethodResolution.externalUnknown();
+			}
+
+			if (externalMetadata.hasMethod(name, descriptor)) {
+				return MethodResolution.found(null);
+			}
+
+			superName = externalMetadata.getSuperName();
 		}
 
 		/*
-		 * Interfaces.
+		 * Then inspect interfaces.
 		 */
-		Set<String> visited = new HashSet<String>();
+		MethodResolution interfaceResult = findInterfaceMethod(current, name, descriptor, metadata, methods,
+				new HashSet<String>());
 
-		return findInterfaceMethod(current, name, descriptor, metadata, methods, visited);
+		if (interfaceResult.isFound() || interfaceResult.isExternalUnknown()) {
+
+			return interfaceResult;
+		}
+
+		return MethodResolution.notFound();
 	}
 
-	private String findInterfaceMethod(ClassMetadata metadataEntry, String name, String descriptor,
+	private MethodResolution findInterfaceMethod(ClassMetadata current, String name, String descriptor,
 			Map<String, ClassMetadata> metadata, Map<String, String> methods, Set<String> visited) {
-		for (String interfaceName : metadataEntry.getInterfaces()) {
+		for (String interfaceName : current.getInterfaces()) {
 
 			if (!visited.add(interfaceName)) {
 				continue;
@@ -218,29 +270,73 @@ public final class MethodMapper {
 			String key = createMethodKey(interfaceName, name, descriptor);
 
 			if (methods.containsKey(key)) {
-				return key;
+				return MethodResolution.found(methods.get(key));
 			}
 
 			ClassMetadata interfaceMetadata = metadata.get(interfaceName);
 
-			if (interfaceMetadata != null) {
+			if (interfaceMetadata == null) {
+				interfaceMetadata = externalResolver.resolve(interfaceName);
+			}
 
-				if (interfaceMetadata.hasMethod(name, descriptor)) {
-					return key;
-				}
+			if (interfaceMetadata == null) {
+				return MethodResolution.externalUnknown();
+			}
 
-				String result = findInterfaceMethod(interfaceMetadata, name, descriptor, metadata, methods, visited);
+			if (interfaceMetadata.hasMethod(name, descriptor)) {
+				return MethodResolution.found(methods.get(key));
+			}
 
-				if (result != null) {
-					return result;
-				}
+			MethodResolution result = findInterfaceMethod(interfaceMetadata, name, descriptor, metadata, methods,
+					visited);
+
+			if (result.isFound() || result.isExternalUnknown()) {
+
+				return result;
 			}
 		}
 
-		return null;
+		return MethodResolution.notFound();
 	}
 
 	private String createMethodKey(String owner, String name, String descriptor) {
 		return owner + "." + name + descriptor;
+	}
+
+	private static final class MethodResolution {
+
+		private final boolean found;
+		private final boolean externalUnknown;
+		private final String mappedName;
+
+		private MethodResolution(boolean found, boolean externalUnknown, String mappedName) {
+			this.found = found;
+			this.externalUnknown = externalUnknown;
+			this.mappedName = mappedName;
+		}
+
+		static MethodResolution found(String mappedName) {
+			return new MethodResolution(true, false, mappedName);
+		}
+
+		static MethodResolution notFound() {
+			return new MethodResolution(false, false, null);
+		}
+
+		static MethodResolution externalUnknown() {
+			return new MethodResolution(false, true, null);
+		}
+
+		boolean isFound() {
+			return found;
+		}
+
+		boolean isExternalUnknown() {
+			return externalUnknown;
+		}
+
+		String getMappedName() {
+			return mappedName;
+		}
 	}
 }
