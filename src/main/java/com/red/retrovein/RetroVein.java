@@ -36,6 +36,7 @@ public final class RetroVein {
 		Path output = Paths.get(args[1]);
 
 		int threads = Runtime.getRuntime().availableProcessors();
+		validatePaths(input, output);
 
 		RetroLogger.info("RetroVein {} (API version {})", RetroVein.VERSION, RetroVein.API_VERSION);
 		RetroLogger.info(LogCategory.Main, "Input: {}", input);
@@ -64,6 +65,14 @@ public final class RetroVein {
 			RetroLogger.error(LogCategory.Main, "Obfuscation failed", exception);
 
 			System.exit(1);
+		}
+	}
+
+	private static void validatePaths(Path inputJar, Path outputJar) {
+		Path absoluteInput = inputJar.toAbsolutePath().normalize();
+		Path absoluteOutput = outputJar.toAbsolutePath().normalize();
+		if (absoluteInput.equals(absoluteOutput)) {
+			throw new IllegalArgumentException("Input and output files must be different.");
 		}
 	}
 
