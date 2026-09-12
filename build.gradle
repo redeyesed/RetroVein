@@ -14,7 +14,7 @@ dependencies {
     implementation 'org.ow2.asm:asm-commons:5.0.3'
 }
 
-jar {
+tasks.named('jar') {
     manifest {
         attributes(
             'Main-Class': 'com.red.retrovein.RetroVein'
@@ -35,10 +35,7 @@ java {
     }
 }
 
-compileJava {
-	options.release.set(8)
-}
-
 tasks.withType(JavaCompile).configureEach {
+    options.release.set(8)
     options.encoding = 'UTF-8'
 }
