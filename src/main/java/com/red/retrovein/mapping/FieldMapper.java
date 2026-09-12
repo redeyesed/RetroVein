@@ -17,7 +17,6 @@ public final class FieldMapper {
 		Map<String, String> mappings = new HashMap<String, String>();
 
 		for (ClassInfo classInfo : classInfos) {
-
 			collect(classInfo, mappings);
 		}
 
@@ -27,13 +26,24 @@ public final class FieldMapper {
 	}
 
 	private void collect(final ClassInfo classInfo, final Map<String, String> mappings) {
-	    final NameGenerator nameGenerator = new NameGenerator();
+		final NameGenerator nameGenerator = new NameGenerator();
+
 		ClassReader reader = new ClassReader(classInfo.getBytecode());
 
 		reader.accept(new ClassVisitor(Opcodes.ASM5) {
 
 			@Override
 			public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
+				/*
+				 * Public/protected fields can be part of an external API.
+				 */
+				if ((access & Opcodes.ACC_PUBLIC) != 0 || (access & Opcodes.ACC_PROTECTED) != 0) {
+
+					RetroLogger.debug("Keeping externally visible field: {}.{}", classInfo.getName(), name);
+
+					return null;
+				}
+
 				String key = classInfo.getName() + "." + name + ":" + descriptor;
 
 				String mappedName = nameGenerator.nextField();
