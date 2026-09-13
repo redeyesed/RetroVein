@@ -300,17 +300,21 @@ public final class JarProcessor {
 	}
 
 	/**
-	 * Очищает SHA1-Digest из записей Manifest, которые становятся недействительными
-	 * после изменения байткода классов, а также удаляет оставшиеся пустые записи.
+	 * Очищает Digest-атрибуты из записей Manifest, которые становятся
+	 * недействительными, а также удаляет оставшиеся пустые записи.
 	 */
 	private static void removeDigests(Manifest manifest) {
 		Iterator<Map.Entry<String, Attributes>> iterator = manifest.getEntries().entrySet().iterator();
 		while (iterator.hasNext()) {
 			Map.Entry<String, Attributes> entry = iterator.next();
 			Attributes attributes = entry.getValue();
-
-			attributes.remove(new Attributes.Name("SHA1-Digest"));
-
+			Iterator<Object> attributeIterator = attributes.keySet().iterator();
+			while (attributeIterator.hasNext()) {
+				Attributes.Name name = (Attributes.Name) attributeIterator.next();
+				if (name.toString().endsWith("-Digest")) {
+					attributeIterator.remove();
+				}
+			}
 			if (attributes.isEmpty()) {
 				iterator.remove();
 			}
