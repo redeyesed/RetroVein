@@ -103,10 +103,14 @@ public final class JarProcessor {
 						continue;
 					}
 
+					if (isSignatureEntry(entry)) {
+						RetroLogger.debug(LogCategory.Jar, "Skipping JAR signature: {}", entry.getName());
+						continue;
+					}
+
 					byte[] data;
 
 					try (InputStream inputStream = jar.getInputStream(entry)) {
-
 						data = readAll(inputStream);
 					}
 
@@ -271,6 +275,24 @@ public final class JarProcessor {
 		RetroLogger.trace(LogCategory.Transform, "Class output: {} -> {}", className, mappedClassName);
 
 		return new ClassResult(outputName, transformed);
+	}
+
+	/**
+	 * Проверяет, является ли запись файлом цифровой подписи JAR. Такие файлы
+	 * необходимо исключить из выходного архива, поскольку после изменения байткода
+	 * классов подпись становится недействительной.
+	 */
+	private static boolean isSignatureEntry(JarEntry entry) {
+		String name = entry.getName();
+
+		if (!name.startsWith("META-INF/")) {
+			return false;
+		}
+
+		String fileName = name.substring("META-INF/".length()).toUpperCase();
+
+		return fileName.endsWith(".SF") || fileName.endsWith(".RSA") || fileName.endsWith(".DSA")
+				|| fileName.endsWith(".EC");
 	}
 
 	private static void writeEntry(JarOutputStream output, String name, byte[] data) throws IOException {
