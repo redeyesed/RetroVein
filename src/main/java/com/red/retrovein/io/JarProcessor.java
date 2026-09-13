@@ -15,7 +15,9 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -208,6 +210,8 @@ public final class JarProcessor {
 			RetroLogger.debug(LogCategory.Jar, "Reading input manifest");
 
 			manifest = copyManifest(manifest);
+
+			removeDigests(manifest);
 		}
 
 		Attributes mainAttributes = manifest.getMainAttributes();
@@ -293,6 +297,24 @@ public final class JarProcessor {
 
 		return fileName.endsWith(".SF") || fileName.endsWith(".RSA") || fileName.endsWith(".DSA")
 				|| fileName.endsWith(".EC");
+	}
+
+	/**
+	 * Очищает SHA1-Digest из записей Manifest, которые становятся недействительными
+	 * после изменения байткода классов, а также удаляет оставшиеся пустые записи.
+	 */
+	private static void removeDigests(Manifest manifest) {
+		Iterator<Map.Entry<String, Attributes>> iterator = manifest.getEntries().entrySet().iterator();
+		while (iterator.hasNext()) {
+			Map.Entry<String, Attributes> entry = iterator.next();
+			Attributes attributes = entry.getValue();
+
+			attributes.remove(new Attributes.Name("SHA1-Digest"));
+
+			if (attributes.isEmpty()) {
+				iterator.remove();
+			}
+		}
 	}
 
 	private static void writeEntry(JarOutputStream output, String name, byte[] data) throws IOException {
