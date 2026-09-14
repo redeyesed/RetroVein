@@ -15,15 +15,11 @@ import org.objectweb.asm.commons.RemappingClassAdapter;
 
 public final class AsmRemappingTransformer implements ClassTransformer {
 	@Override
-	public byte[] transform(final String className, byte[] bytecode, TransformationContext context) {
+	public byte[] transform(final String className, byte[] bytecode, Mapping mapping) {
 		RetroLogger.debug("ASM transform started: {} ({} bytes)", className, bytecode.length);
 
-		final Mapping mapping = context.getMapping();
-
 		ClassReader reader = new ClassReader(bytecode);
-
 		ClassWriter writer = new ClassWriter(reader, 0);
-
 		/*
 		 * First create the normal ASM remapper.
 		 */

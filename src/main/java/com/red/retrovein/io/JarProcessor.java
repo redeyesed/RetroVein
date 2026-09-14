@@ -6,7 +6,6 @@ import com.red.retrovein.mapping.Mapping;
 import com.red.retrovein.mapping.MappingBuilder;
 import com.red.retrovein.mapping.file.MappingWriter;
 import com.red.retrovein.transform.ClassTransformer;
-import com.red.retrovein.transform.TransformationContext;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -66,8 +65,6 @@ public final class JarProcessor {
 
 			Mapping mapping = mappingBuilder.build(classInfos);
 
-			TransformationContext context = new TransformationContext(mapping);
-
 			/*
 			 * Manifest
 			 */
@@ -121,7 +118,7 @@ public final class JarProcessor {
 						final String entryName = entry.getName();
 						final byte[] classData = data;
 
-						tasks.add(executor.submit(() -> transformClass(entryName, classData, context)));
+						tasks.add(executor.submit(() -> transformClass(entryName, classData, mapping)));
 					} else {
 
 						resourceCount++;
@@ -257,7 +254,7 @@ public final class JarProcessor {
 		return copy;
 	}
 
-	private ClassResult transformClass(String entryName, byte[] bytecode, TransformationContext context) {
+	private ClassResult transformClass(String entryName, byte[] bytecode, Mapping mapping) {
 		String className = entryName.substring(0, entryName.length() - ".class".length());
 
 		RetroLogger.trace(LogCategory.Transform, "Transforming class: {}", className);
@@ -269,11 +266,10 @@ public final class JarProcessor {
 			RetroLogger.trace(LogCategory.Transform, "Applying transformer {} to {}",
 					transformer.getClass().getSimpleName(), className);
 
-			transformed = transformer.transform(className, transformed, context);
+			transformed = transformer.transform(className, transformed, mapping);
 		}
 
-		String mappedClassName = context.getMapping().getClassName(className);
-
+		String mappedClassName = mapping.getClassName(className);
 		String outputName = mappedClassName + ".class";
 
 		RetroLogger.trace(LogCategory.Transform, "Class output: {} -> {}", className, mappedClassName);

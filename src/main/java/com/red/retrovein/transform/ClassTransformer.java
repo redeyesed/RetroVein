@@ -1,6 +1,7 @@
 package com.red.retrovein.transform;
 
-public interface ClassTransformer {
-	byte[] transform(String className, byte[] bytecode, TransformationContext context);
+import com.red.retrovein.mapping.Mapping;
 
+public interface ClassTransformer {
+	byte[] transform(String className, byte[] bytecode, Mapping mapping);
 }
