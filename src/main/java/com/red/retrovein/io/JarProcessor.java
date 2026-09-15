@@ -134,22 +134,16 @@ public final class JarProcessor {
 				int transformedClasses = 0;
 
 				for (Future<ClassResult> task : tasks) {
-
 					try {
 						ClassResult result = task.get();
-
 						writeEntry(outputJar, result.name, result.bytecode);
-
 						transformedClasses++;
-
 					} catch (InterruptedException e) {
-
+						cancelTasks(tasks);
 						Thread.currentThread().interrupt();
-
 						throw new IOException("Interrupted while processing JAR", e);
-
 					} catch (ExecutionException e) {
-
+						cancelTasks(tasks);
 						throw new IOException("Failed to transform class", e.getCause());
 					}
 				}
@@ -177,6 +171,12 @@ public final class JarProcessor {
 			executor.shutdown();
 
 			RetroLogger.debug(LogCategory.Jar, "Worker executor shut down");
+		}
+	}
+
+	private static void cancelTasks(List<Future<ClassResult>> tasks) {
+		for (Future<ClassResult> task : tasks) {
+			task.cancel(true);
 		}
 	}
 
