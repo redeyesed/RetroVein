@@ -16,22 +16,17 @@ public final class ClassMapper {
 
 	public Map<String, String> build(List<ClassInfo> classInfos) {
 		Map<String, String> mappings = new HashMap<String, String>();
-
 		String rootPackage = findRootPackage(classInfos);
 
 		for (ClassInfo classInfo : classInfos) {
-
 			String originalName = classInfo.getName();
-
-			String mappedName = rootPackage + "/" + nameGenerator.next();
+			String mappedName = rootPackage.isEmpty() ? nameGenerator.next() : rootPackage + "/" + nameGenerator.next();
 
 			mappings.put(originalName, mappedName);
-
 			RetroLogger.debug("Class mapping: {} -> {}", originalName, mappedName);
 		}
 
 		RetroLogger.debug("Generated {} class mappings in package {}", mappings.size(), rootPackage);
-
 		return mappings;
 	}
 
