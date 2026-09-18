@@ -14,9 +14,12 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -79,86 +82,124 @@ public final class JarProcessor {
 				Files.createDirectories(outputParent);
 			}
 
-			try (OutputStream fileOutput = Files.newOutputStream(output);
-					JarOutputStream outputJar = new JarOutputStream(fileOutput, manifest)) {
+			/*
+			 * Сначала читаем все записи и запускаем обработку классов, а затем записываем
+			 * их в выходной JAR в исходном порядке.
+			 */
+			List<JarEntry> entriesToWrite = new ArrayList<JarEntry>();
+			Map<String, Future<ClassResult>> classTasks = new HashMap<String, Future<ClassResult>>();
+			Map<String, byte[]> resources = new HashMap<String, byte[]>();
 
-				List<Future<ClassResult>> tasks = new ArrayList<Future<ClassResult>>();
+			java.util.Enumeration<JarEntry> entries = jar.entries();
 
-				java.util.Enumeration<JarEntry> entries = jar.entries();
+			int resourceCount = 0;
+			int classCount = 0;
 
-				int resourceCount = 0;
+			while (entries.hasMoreElements()) {
+				JarEntry entry = entries.nextElement();
 
-				while (entries.hasMoreElements()) {
-					JarEntry entry = entries.nextElement();
-
-					if (entry.isDirectory()) {
-						continue;
-					}
-
-					/*
-					 * Manifest already written by JarOutputStream.
-					 */
-					if ("META-INF/MANIFEST.MF".equalsIgnoreCase(entry.getName())) {
-						continue;
-					}
-
-					if (isSignatureEntry(entry)) {
-						RetroLogger.debug(LogCategory.Jar, "Skipping JAR signature: {}", entry.getName());
-						continue;
-					}
-
-					byte[] data;
-
-					try (InputStream inputStream = jar.getInputStream(entry)) {
-						data = readAll(inputStream);
-					}
-
-					if (entry.getName().endsWith(".class")) {
-
-						final String entryName = entry.getName();
-						final byte[] classData = data;
-
-						tasks.add(executor.submit(() -> transformClass(entryName, classData, mapping)));
-					} else {
-
-						resourceCount++;
-
-						RetroLogger.trace(LogCategory.Resource, "Copying resource: {}", entry.getName());
-
-						writeEntry(outputJar, entry.getName(), data);
-					}
+				if (entry.isDirectory()) {
+					continue;
 				}
 
-				RetroLogger.debug(LogCategory.Transform, "Submitted {} classes for transformation", tasks.size());
+				String entryName = entry.getName();
 
+				/*
+				 * Manifest already written by JarOutputStream.
+				 */
+				if ("META-INF/MANIFEST.MF".equalsIgnoreCase(entryName)) {
+					continue;
+				}
+
+				if (isSignatureEntry(entry)) {
+					RetroLogger.debug(LogCategory.Jar, "Skipping JAR signature: {}", entryName);
+					continue;
+				}
+
+				byte[] data;
+
+				try (InputStream inputStream = jar.getInputStream(entry)) {
+					data = readAll(inputStream);
+				}
+
+				entriesToWrite.add(entry);
+
+				if (entryName.endsWith(".class")) {
+
+					final String classEntryName = entryName;
+					final byte[] classData = data;
+
+					Future<ClassResult> future = executor
+							.submit(() -> transformClass(classEntryName, classData, mapping));
+
+					classTasks.put(entryName, future);
+
+					classCount++;
+
+				} else {
+					resources.put(entryName, data);
+					resourceCount++;
+					RetroLogger.trace(LogCategory.Resource, "Read resource: {}", entryName);
+				}
+			}
+			RetroLogger.debug(LogCategory.Transform, "Submitted {} classes for transformation", classCount);
+
+			try (OutputStream fileOutput = Files.newOutputStream(output);
+					JarOutputStream outputJar = new JarOutputStream(fileOutput, manifest)) {
+				Set<String> writtenNames = new HashSet<String>();
 				int transformedClasses = 0;
+				/*
+				 * Изменено:
+				 *
+				 * Записываем entries в том же порядке, в котором они находились во входном JAR.
+				 *
+				 * При этом class ждёт только свой Future, поэтому сами трансформации
+				 * по-прежнему выполняются параллельно.
+				 */
+				for (JarEntry entry : entriesToWrite) {
+					String entryName = entry.getName();
+					Future<ClassResult> classTask = classTasks.get(entryName);
 
-				for (Future<ClassResult> task : tasks) {
-					try {
-						ClassResult result = task.get();
-						writeEntry(outputJar, result.name, result.bytecode);
-						transformedClasses++;
-					} catch (InterruptedException e) {
-						cancelTasks(tasks);
-						Thread.currentThread().interrupt();
-						throw new IOException("Interrupted while processing JAR", e);
-					} catch (ExecutionException e) {
-						cancelTasks(tasks);
-						throw new IOException("Failed to transform class", e.getCause());
+					if (classTask != null) {
+						try {
+							ClassResult result = classTask.get();
+							if (!writtenNames.add(result.name)) {
+								throw new IOException("Duplicate output JAR entry: " + result.name);
+							}
+							writeEntry(outputJar, result.name, result.bytecode);
+							transformedClasses++;
+							RetroLogger.trace(LogCategory.Transform, "Wrote transformed class: {}", result.name);
+						} catch (InterruptedException e) {
+							cancelTasks(classTasks);
+							Thread.currentThread().interrupt();
+							throw new IOException("Interrupted while processing JAR", e);
+						} catch (ExecutionException e) {
+							cancelTasks(classTasks);
+							throw new IOException("Failed to transform class", e.getCause());
+						}
+					} else {
+						byte[] data = resources.get(entryName);
+
+						if (data == null) {
+							throw new IOException("Missing resource data: " + entryName);
+						}
+
+						if (!writtenNames.add(entryName)) {
+							throw new IOException("Duplicate output JAR entry: " + entryName);
+						}
+
+						writeEntry(outputJar, entryName, data);
+						RetroLogger.trace(LogCategory.Resource, "Wrote resource: {}", entryName);
 					}
 				}
 
 				RetroLogger.info(LogCategory.Transform, "Transformed {} classes", transformedClasses);
-
 				RetroLogger.info(LogCategory.Resource, "Copied {} resources", resourceCount);
 			}
-
 			RetroLogger.info(LogCategory.Jar, "JAR written successfully");
-
 			/*
 			 * Mapping
 			 */
-
 			Path mappingOutput = getMappingOutputPath(output);
 
 			MappingWriter mappingWriter = new MappingWriter();
@@ -174,8 +215,8 @@ public final class JarProcessor {
 		}
 	}
 
-	private static void cancelTasks(List<Future<ClassResult>> tasks) {
-		for (Future<ClassResult> task : tasks) {
+	private static void cancelTasks(Map<String, Future<ClassResult>> classTasks) {
+		for (Future<ClassResult> task : classTasks.values()) {
 			task.cancel(true);
 		}
 	}
