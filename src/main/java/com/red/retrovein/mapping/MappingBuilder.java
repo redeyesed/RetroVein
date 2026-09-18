@@ -18,59 +18,71 @@ public final class MappingBuilder {
 	private final FieldMapper fieldMapper;
 	private final MethodMapper methodMapper;
 	private final LocalVariableMapper localVariableMapper;
+	private final EnumMapper enumMapper;
 
 	public MappingBuilder() {
 		this.classMapper = new ClassMapper();
 		this.fieldMapper = new FieldMapper();
 		this.methodMapper = new MethodMapper();
 		this.localVariableMapper = new LocalVariableMapper();
+		this.enumMapper = new EnumMapper();
 	}
 
 	public Mapping build(List<ClassInfo> classInfos) {
 		RetroLogger.debug(LogCategory.Mapping, "Preparing {} classes for mapping", classInfos.size());
-
 		List<ClassInfo> sortedClasses = sortClasses(classInfos);
-
 		RetroLogger.debug(LogCategory.Mapping, "Classes sorted alphabetically");
-
+		/*
+		 * Classes.
+		 */
 		RetroLogger.debug(LogCategory.Mapping, "Generating class mappings");
-
 		Map<String, String> classes = classMapper.build(sortedClasses);
-
 		RetroLogger.debug(LogCategory.Mapping, "Generated {} class mappings", classes.size());
 
+		/*
+		 * Metadata.
+		 */
 		RetroLogger.debug(LogCategory.Mapping, "Generating class metadata");
-
 		Map<String, ClassMetadata> metadata = methodMapper.buildMetadata(sortedClasses);
-
 		RetroLogger.debug(LogCategory.Mapping, "Generated metadata for {} classes", metadata.size());
 
+		/*
+		 * Fields.
+		 */
 		RetroLogger.debug(LogCategory.Mapping, "Generating field mappings");
-
 		Map<String, String> fields = fieldMapper.build(sortedClasses);
-
 		RetroLogger.debug(LogCategory.Mapping, "Generated {} field mappings", fields.size());
 
+		/*
+		 * Methods.
+		 */
 		RetroLogger.debug(LogCategory.Mapping, "Generating method mappings");
-
 		List<ClassInfo> methodClasses = sortByInheritance(sortedClasses, metadata);
 		Map<String, String> methods = methodMapper.build(methodClasses, metadata);
-
 		RetroLogger.debug(LogCategory.Mapping, "Generated {} method mappings", methods.size());
-
+		/*
+		 * Local variables.
+		 */
 		RetroLogger.debug(LogCategory.Mapping, "Generating local variable mappings");
-
 		Map<String, String> localVariables = localVariableMapper.build(sortedClasses);
-
 		RetroLogger.debug(LogCategory.Mapping, "Generated {} local variable mappings", localVariables.size());
 
-		RetroLogger.info(LogCategory.Mapping, "Generated mappings: {} classes, {} fields, {} methods, {} variables",
-				classes.size(), fields.size(), methods.size(), localVariables.size());
+		/*
+		 * Enum constants.
+		 */
+		RetroLogger.debug(LogCategory.Mapping, "Generating enum mappings");
+		Map<String, String> enums = enumMapper.build(sortedClasses);
+		RetroLogger.debug(LogCategory.Mapping, "Generated {} enum mappings", enums.size());
 
-		return new Mapping(classes, methods, fields, localVariables);
+		RetroLogger.info(LogCategory.Mapping,
+				"Generated mappings: {} classes, {} fields, {} methods, {} variables, {} enum constants",
+				classes.size(), fields.size(), methods.size(), localVariables.size(), enums.size());
+
+		return new Mapping(classes, methods, fields, localVariables, enums);
 	}
 
 	private List<ClassInfo> sortClasses(List<ClassInfo> classInfos) {
+
 		List<ClassInfo> sorted = new ArrayList<ClassInfo>(classInfos);
 
 		Collections.sort(sorted, new Comparator<ClassInfo>() {
@@ -92,7 +104,6 @@ public final class MappingBuilder {
 	 * методов.
 	 */
 	private List<ClassInfo> sortByInheritance(List<ClassInfo> sortedClasses, Map<String, ClassMetadata> metadata) {
-
 		Map<String, ClassInfo> classesByName = new HashMap<String, ClassInfo>();
 
 		for (ClassInfo classInfo : sortedClasses) {
@@ -131,11 +142,11 @@ public final class MappingBuilder {
 		ClassMetadata classMetadata = metadata.get(className);
 
 		if (classMetadata != null) {
+			String superName = classMetadata.getSuperName();
+
 			/*
 			 * Сначала обрабатываем родительский класс.
 			 */
-			String superName = classMetadata.getSuperName();
-
 			if (superName != null && classesByName.containsKey(superName)) {
 				visitClass(superName, classesByName, metadata, visited, visiting, result);
 			}

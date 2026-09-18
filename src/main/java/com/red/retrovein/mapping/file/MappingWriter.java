@@ -14,7 +14,7 @@ import java.util.Map;
 
 public final class MappingWriter {
 	private static final String HEADER = "# RetroVein Mapping";
-	private static final int FORMAT_VERSION = 1;
+	private static final int FORMAT_VERSION = 2;
 
 	public void write(Mapping mapping, Path output) throws IOException {
 		if (mapping == null) {
@@ -33,11 +33,12 @@ public final class MappingWriter {
 
 		try (BufferedWriter writer = Files.newBufferedWriter(output, StandardCharsets.UTF_8)) {
 
-			writeHeader(writer);
-			writeSection(writer, "CLASS", mapping.getClasses());
-			writeSection(writer, "FIELD", mapping.getFields());
-			writeSection(writer, "METHOD", mapping.getMethods());
-			writeSection(writer, "LOCAL", mapping.getLocalVariables());
+			this.writeHeader(writer);
+			this.writeSection(writer, "CLASS", mapping.getClasses());
+			this.writeSection(writer, "FIELD", mapping.getFields());
+			this.writeSection(writer, "METHOD", mapping.getMethods());
+			this.writeSection(writer, "LOCAL", mapping.getLocalVariables());
+			this.writeSection(writer, "ENUM", mapping.getEnums());
 		}
 	}
 

@@ -8,13 +8,15 @@ public final class Mapping {
 	private final Map<String, String> methods;
 	private final Map<String, String> fields;
 	private final Map<String, String> localVariables;
+	private final Map<String, String> enums;
 
 	public Mapping(Map<String, String> classes, Map<String, String> methods, Map<String, String> fields,
-			Map<String, String> localVariables) {
+			Map<String, String> localVariables, Map<String, String> enums) {
 		this.classes = Collections.unmodifiableMap(classes);
 		this.methods = Collections.unmodifiableMap(methods);
 		this.fields = Collections.unmodifiableMap(fields);
 		this.localVariables = Collections.unmodifiableMap(localVariables);
+		this.enums = Collections.unmodifiableMap(enums);
 	}
 
 	public String getClassName(String originalName) {
@@ -44,6 +46,13 @@ public final class Mapping {
 		return mappedName != null ? mappedName : null;
 	}
 
+	public String getEnumName(String owner, String name, String descriptor) {
+		String key = EnumMapper.createKey(owner, name, descriptor);
+		String mappedName = enums.get(key);
+
+		return mappedName != null ? mappedName : name;
+	}
+
 	public Map<String, String> getClasses() {
 		return classes;
 	}
@@ -58,5 +67,9 @@ public final class Mapping {
 
 	public Map<String, String> getLocalVariables() {
 		return localVariables;
+	}
+
+	public Map<String, String> getEnums() {
+		return enums;
 	}
 }

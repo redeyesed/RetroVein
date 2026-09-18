@@ -12,7 +12,7 @@ import java.util.Map;
 
 public final class MappingReader {
 	private static final String HEADER = "# RetroVein Mapping";
-	private static final int FORMAT_VERSION = 1;
+	private static final int FORMAT_VERSION = 2;
 
 	public Mapping read(Path input) throws IOException {
 		if (input == null) {
@@ -27,6 +27,7 @@ public final class MappingReader {
 		Map<String, String> fields = new HashMap<String, String>();
 		Map<String, String> methods = new HashMap<String, String>();
 		Map<String, String> localVariables = new HashMap<String, String>();
+		Map<String, String> enums = new HashMap<String, String>();
 
 		boolean headerRead = false;
 		boolean versionRead = false;
@@ -35,7 +36,6 @@ public final class MappingReader {
 			String line;
 
 			while ((line = reader.readLine()) != null) {
-
 				line = line.trim();
 
 				if (line.isEmpty()) {
@@ -43,14 +43,13 @@ public final class MappingReader {
 				}
 
 				if (line.startsWith("#")) {
-
 					if (HEADER.equals(line)) {
 						headerRead = true;
 					}
 					continue;
 				}
 
-				if (line.startsWith("version:")) {
+				if (line.startsWith("version=")) {
 					readVersion(line);
 					versionRead = true;
 					continue;
@@ -76,6 +75,11 @@ public final class MappingReader {
 					continue;
 				}
 
+				if (line.startsWith("ENUM:")) {
+					readMapping(line, "ENUM", enums);
+					continue;
+				}
+
 				throw new IOException("Unknown mapping entry: " + line);
 			}
 		}
@@ -88,11 +92,11 @@ public final class MappingReader {
 			throw new IOException("Invalid mapping file: missing version");
 		}
 
-		return new Mapping(classes, methods, fields, localVariables);
+		return new Mapping(classes, methods, fields, localVariables, enums);
 	}
 
 	private void readVersion(String line) throws IOException {
-		String value = line.substring("version:".length()).trim();
+		String value = line.substring("version=".length()).trim();
 
 		if (value.isEmpty()) {
 			throw new IOException("Invalid mapping version");

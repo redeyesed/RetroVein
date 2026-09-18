@@ -21,12 +21,18 @@ public final class AsmRemapper extends Remapper {
 		if ("<init>".equals(name) || "<clinit>".equals(name)) {
 			return name;
 		}
-
 		return mapping.getMethodName(owner, name, descriptor);
 	}
 
 	@Override
 	public String mapFieldName(String owner, String name, String descriptor) {
+		/*
+		 * Сначала проверяется наличие отображения для константы перечисления.
+		 */
+		String enumName = mapping.getEnumName(owner, name, descriptor);
+		if (!name.equals(enumName)) {
+			return enumName;
+		}
 		return mapping.getFieldName(owner, name, descriptor);
 	}
 }

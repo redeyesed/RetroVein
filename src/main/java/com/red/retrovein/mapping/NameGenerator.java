@@ -6,6 +6,7 @@ public class NameGenerator {
 	private int parameterCounter;
 	private int fieldCounter;
 	private int methodCounter;
+	private int enumCounter;
 
 	public String next() {
 		return generate(NameType.CLASS, classCounter++);
@@ -25,6 +26,10 @@ public class NameGenerator {
 
 	public String nextMethod() {
 		return generate(NameType.METHOD, ++methodCounter);
+	}
+
+	public String nextEnum() {
+		return generate(NameType.ENUM, ++enumCounter);
 	}
 
 	private String generate(NameType type, int counter) {

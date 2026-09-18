@@ -5,7 +5,8 @@ public enum NameType {
 	METHOD("MD", false),
 	FIELD("FD", false),
 	VARIABLE("var", false),
-	PARAMETER("par", false);
+	PARAMETER("par", false),
+	ENUM("EN", false);
 
 	private final String prefix;
 	private final boolean encodeCounter;

@@ -35,6 +35,13 @@ public final class FieldMapper {
 			@Override
 			public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object value) {
 				/*
+				 * Константы перечисления обрабатываются отдельно через EnumMapper.
+				 */
+				if ((access & Opcodes.ACC_ENUM) != 0) {
+					return null;
+				}
+
+				/*
 				 * Public/protected fields can be part of an external API.
 				 */
 				if ((access & Opcodes.ACC_PUBLIC) != 0 || (access & Opcodes.ACC_PROTECTED) != 0) {
