@@ -135,7 +135,7 @@ public final class MappingWriter {
 	}
 
 	private void writeField(BufferedWriter writer, FieldEntry field) throws IOException {
-		writer.write("\t");
+		writer.write("    ");
 		writer.write(field.descriptor);
 		writer.write(" ");
 		writer.write(field.name);
@@ -160,7 +160,7 @@ public final class MappingWriter {
 		});
 
 		for (MethodEntry method : methods) {
-			writer.write("\t");
+			writer.write("    ");
 			writer.write(method.name);
 			writer.write(method.descriptor);
 			writer.write(" -> ");
@@ -341,10 +341,27 @@ public final class MappingWriter {
 		return separator >= 0 ? mappedName.substring(separator + 1) : mappedName;
 	}
 
+	/**
+	 * Сравнивает локальные переменные по их порядковому номеру. Например: (var1,
+	 * var2, var3..) всегда будут записаны именно в таком порядке независимо от
+	 * индекса локальной переменной.
+	 */
+	private static int compareLocalNames(String first, String second) {
+		return Integer.compare(getLocalNumber(first), getLocalNumber(second));
+	}
+
+	private static int getLocalNumber(String name) {
+		try {
+			return Integer.parseInt(name.substring(3));
+		} catch (NumberFormatException ignored) {
+			return Integer.MAX_VALUE;
+		}
+	}
+
 	private static final Comparator<LocalEntry> LOCAL_COMPARATOR = new Comparator<LocalEntry>() {
 		@Override
 		public int compare(LocalEntry first, LocalEntry second) {
-			return Integer.compare(first.index, second.index);
+			return compareLocalNames(first.mappedName, second.mappedName);
 		}
 	};
 
