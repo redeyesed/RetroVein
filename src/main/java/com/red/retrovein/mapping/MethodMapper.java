@@ -2,6 +2,7 @@ package com.red.retrovein.mapping;
 
 import com.red.retrovein.io.ClassInfo;
 import com.red.retrovein.logging.RetroLogger;
+import com.red.retrovein.naming.NameGenerator;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;

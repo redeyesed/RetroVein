@@ -12,6 +12,7 @@ import org.objectweb.asm.Opcodes;
 import com.red.retrovein.io.ClassInfo;
 import com.red.retrovein.logging.LogCategory;
 import com.red.retrovein.logging.RetroLogger;
+import com.red.retrovein.naming.NameGenerator;
 
 public final class EnumMapper {
 	public Map<String, String> build(List<ClassInfo> classInfos) {

@@ -2,6 +2,7 @@ package com.red.retrovein.mapping;
 
 import com.red.retrovein.io.ClassInfo;
 import com.red.retrovein.logging.RetroLogger;
+import com.red.retrovein.naming.NameGenerator;
 
 import java.util.HashMap;
 import java.util.List;
@@ -20,7 +21,8 @@ public final class ClassMapper {
 
 		for (ClassInfo classInfo : classInfos) {
 			String originalName = classInfo.getName();
-			String mappedName = rootPackage.isEmpty() ? nameGenerator.next() : rootPackage + "/" + nameGenerator.next();
+			String mappedName = rootPackage.isEmpty() ? nameGenerator.nextClass()
+					: rootPackage + "/" + nameGenerator.nextClass();
 
 			mappings.put(originalName, mappedName);
 			RetroLogger.debug("Class mapping: {} -> {}", originalName, mappedName);
