@@ -12,6 +12,7 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.commons.RemappingClassAdapter;
+import org.objectweb.asm.tree.MethodNode;
 
 public final class AsmRemappingTransformer implements ClassTransformer {
 	@Override
@@ -24,6 +25,7 @@ public final class AsmRemappingTransformer implements ClassTransformer {
 		 * First create the normal ASM remapper.
 		 */
 		final RemappingClassAdapter remapper = new RemappingClassAdapter(writer, new AsmRemapper(mapping));
+		final ReflectionRemapper reflectionRemapper = new ReflectionRemapper(mapping);
 
 		/*
 		 * This visitor receives ORIGINAL method names.
@@ -64,26 +66,29 @@ public final class AsmRemappingTransformer implements ClassTransformer {
 			@Override
 			public MethodVisitor visitMethod(int access, final String name, final String descriptor, String signature,
 					String[] exceptions) {
-
-				MethodVisitor visitor = super.visitMethod(access, name, descriptor, signature, exceptions);
+				final MethodVisitor visitor = super.visitMethod(access, name, descriptor, signature, exceptions);
 
 				if (visitor == null) {
 					return null;
 				}
 
-				return new MethodVisitor(Opcodes.ASM5, visitor) {
+				final MethodNode method = new MethodNode(Opcodes.ASM5, access, name, descriptor, signature, exceptions);
+
+				return new MethodVisitor(Opcodes.ASM5, method) {
 
 					@Override
 					public AnnotationVisitor visitAnnotation(String annotationDescriptor, boolean visible) {
-						AnnotationVisitor annotationVisitor = super.visitAnnotation(annotationDescriptor, visible);
+						AnnotationVisitor annotationVisitor = method.visitAnnotation(annotationDescriptor, visible);
+
 						return ForgeAnnotationRemapper.remap(annotationDescriptor, annotationVisitor, mapping);
 					}
 
 					@Override
 					public void visitLocalVariable(String localName, String localDescriptor, String localSignature,
 							Label start, Label end, int index) {
+
 						if ("this".equals(localName)) {
-							super.visitLocalVariable(localName, localDescriptor, localSignature, start, end, index);
+							method.visitLocalVariable(localName, localDescriptor, localSignature, start, end, index);
 
 							return;
 						}
@@ -99,7 +104,22 @@ public final class AsmRemappingTransformer implements ClassTransformer {
 									mappedName, className, name, descriptor, index);
 						}
 
-						super.visitLocalVariable(mappedName, localDescriptor, localSignature, start, end, index);
+						method.visitLocalVariable(mappedName, localDescriptor, localSignature, start, end, index);
+					}
+
+					@Override
+					public void visitEnd() {
+						/*
+						 * Сначала обрабатываем reflection-вызовы внутри метода, пока он представлен в
+						 * виде MethodNode.
+						 */
+						reflectionRemapper.remapReflection(method);
+
+						/*
+						 * После всех дополнительных преобразований передаём готовый метод в основной
+						 * ASM visitor.
+						 */
+						method.accept(visitor);
 					}
 				};
 			}
