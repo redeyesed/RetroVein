@@ -43,7 +43,7 @@ public final class MappingBuilder {
 		Map<String, String> enums = this.buildEnumMappings(sortedClasses);
 
 		this.logMappingSummary(classes, fields, methods, localVariables, enums);
-		return new Mapping(classes, methods, fields, localVariables, enums);
+		return new Mapping(classes, fields, methods, localVariables, enums);
 	}
 
 	private Map<String, String> buildClassMappings(List<ClassInfo> classes) {
