@@ -238,14 +238,52 @@ public final class MappingWriter {
 		return result.toString();
 	}
 
+	/*
+	 * Записывает список локальных переменных в сокращённом виде. Последовательные
+	 * переменные с одинаковым префиксом объединяются в диапазон через "..".
+	 */
 	private void writeLocalList(StringBuilder result, List<LocalEntry> locals) {
-		for (int i = 0; i < locals.size(); i++) {
-			if (i > 0) {
+		if (locals.isEmpty()) {
+			return;
+		}
+		int start = 0;
+		while (start < locals.size()) {
+			int end = start;
+			String firstName = locals.get(start).mappedName;
+			String prefix = getLocalPrefix(firstName);
+			int previousNumber = getLocalNumber(firstName);
+			while (end + 1 < locals.size()) {
+				String nextName = locals.get(end + 1).mappedName;
+				if (!prefix.equals(getLocalPrefix(nextName))) {
+					break;
+				}
+				int nextNumber = getLocalNumber(nextName);
+				if (nextNumber != previousNumber + 1) {
+					break;
+				}
+				end++;
+				previousNumber = nextNumber;
+			}
+			if (start > 0) {
 				result.append(", ");
 			}
-
-			result.append(locals.get(i).mappedName);
+			String lastName = locals.get(end).mappedName;
+			if (start != end && end - start >= 1) {
+				result.append(firstName);
+				result.append("..");
+				result.append(lastName);
+			} else {
+				result.append(firstName);
+			}
+			start = end + 1;
 		}
+	}
+
+	private static String getLocalPrefix(String name) {
+		if (name == null || name.length() < 4) {
+			return "";
+		}
+		return name.substring(0, 3);
 	}
 
 	private List<FieldEntry> collectFields(String owner, Map<String, String> mappings) {
