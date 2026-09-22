@@ -7,7 +7,6 @@ import com.red.retrovein.logging.LogCategory;
 import com.red.retrovein.logging.RetroLogger;
 
 public final class PackageMapper {
-
 	/*
 	 * Извлекает имя пакета из полного внутреннего имени класса. Если класс
 	 * находится в корневом пакете, возвращается пустая строка.
@@ -28,20 +27,19 @@ public final class PackageMapper {
 	 * используется ClassMapper при создании новых имён классов.
 	 */
 	public String findRootPackage(List<ClassInfo> classInfos) {
-		String rootPackage = null;
 		if (classInfos == null || classInfos.isEmpty()) {
 			return "";
 		}
+		String rootPackage = "";
 		for (ClassInfo classInfo : classInfos) {
 			if (classInfo == null) {
 				continue;
 			}
 			String packageName = getPackage(classInfo.getName());
-
 			if (packageName.isEmpty()) {
 				continue;
 			}
-			if (rootPackage == null) {
+			if (rootPackage.isEmpty()) {
 				rootPackage = packageName;
 				continue;
 			}
@@ -50,9 +48,9 @@ public final class PackageMapper {
 				break;
 			}
 		}
-		String result = rootPackage == null ? "" : rootPackage;
-		RetroLogger.debug(LogCategory.Mapping, "Detected root package: {}", result.isEmpty() ? "<default>" : result);
-		return result;
+		RetroLogger.debug(LogCategory.Mapping, "Detected root package: {}",
+				rootPackage.isEmpty() ? "<default>" : rootPackage);
+		return rootPackage;
 	}
 
 	/*
@@ -61,6 +59,78 @@ public final class PackageMapper {
 	 */
 	public String mapPackage(String packageName) {
 		return packageName == null ? "" : packageName;
+	}
+
+	/*
+	 * Возвращает родительский пакет для указанного имени. Если родительского пакета
+	 * нет, возвращается пустая строка.
+	 */
+	public String getParentPackage(String packageName) {
+		if (packageName == null || packageName.isEmpty()) {
+			return "";
+		}
+		int lastSlash = packageName.lastIndexOf('/');
+		if (lastSlash <= 0) {
+			return "";
+		}
+		return packageName.substring(0, lastSlash);
+	}
+
+	/*
+	 * Проверяет, является ли второй пакет дочерним по отношению к первому. Сами
+	 * пакеты считаются разными, поэтому одинаковые имена возвращают false.
+	 */
+	public boolean isSubPackage(String parent, String child) {
+		if (parent == null || parent.isEmpty() || child == null || child.isEmpty() || parent.equals(child)) {
+			return false;
+		}
+		return child.startsWith(parent + "/");
+	}
+
+	/*
+	 * Возвращает количество компонентов в имени пакета. Для корневого пакета
+	 * возвращается нулевая глубина.
+	 */
+	public int getDepth(String packageName) {
+		if (packageName == null || packageName.isEmpty()) {
+			return 0;
+		}
+		int depth = 1;
+		for (int i = 0; i < packageName.length(); i++) {
+			if (packageName.charAt(i) == '/') {
+				depth++;
+			}
+		}
+		return depth;
+	}
+
+	/*
+	 * Проверяет корректность имени пакета во внутреннем формате JVM. Каждый
+	 * компонент должен содержать только допустимые символы идентификатора.
+	 */
+	public boolean isValidPackage(String packageName) {
+		if (packageName == null || packageName.isEmpty()) {
+			return false;
+		}
+		String[] parts = packageName.split("/");
+		for (String part : parts) {
+			if (part.isEmpty() || !isValidPackagePart(part)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	private boolean isValidPackagePart(String part) {
+		if (!Character.isJavaIdentifierStart(part.charAt(0))) {
+			return false;
+		}
+		for (int i = 1; i < part.length(); i++) {
+			if (!Character.isJavaIdentifierPart(part.charAt(i))) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	/*
