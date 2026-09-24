@@ -1,5 +1,7 @@
 package com.red.retrovein;
 
+import com.red.retrovein.config.ConfigLoader;
+import com.red.retrovein.config.RetroConfig;
 import com.red.retrovein.io.JarProcessor;
 import com.red.retrovein.logging.LogCategory;
 import com.red.retrovein.logging.LogLevel;
@@ -9,7 +11,7 @@ import com.red.retrovein.transform.ClassTransformer;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collections;
+import java.util.ArrayList;
 import java.util.List;
 
 public final class RetroVein {
@@ -32,26 +34,44 @@ public final class RetroVein {
 			RetroLogger.setLevel(LogLevel.DEBUG);
 		}
 
+		RetroConfig config;
+		try {
+			config = ConfigLoader.loadConfig();
+		} catch (Exception exception) {
+			RetroLogger.error(LogCategory.Main, "Failed to load configuration", exception);
+			System.exit(1);
+			return;
+		}
+
 		Path input = Paths.get(args[0]);
 		Path output = Paths.get(args[1]);
 
-		int threads = Runtime.getRuntime().availableProcessors();
 		validatePaths(input, output);
 
-		RetroLogger.info("RetroVein {} (API version {})", RetroVein.VERSION, RetroVein.API_VERSION);
+		RetroLogger.info("RetroVein {} (API version {})", VERSION, API_VERSION);
 		RetroLogger.info(LogCategory.Main, "Input: {}", input);
 		RetroLogger.info(LogCategory.Main, "Output: {}", output);
-		RetroLogger.info(LogCategory.Main, "Threads: {}", threads);
+		RetroLogger.info(LogCategory.Main, "Threads: {}", config.getCoreThreads());
+		RetroLogger.debug(LogCategory.Main, "Mapping classes: {}", config.isMappingClasses());
+		RetroLogger.debug(LogCategory.Main, "Mapping fields: {}", config.isMappingFields());
+		RetroLogger.debug(LogCategory.Main, "Mapping methods: {}", config.isMappingMethods());
+		RetroLogger.debug(LogCategory.Main, "Mapping local variables: {}", config.isMappingLocalVariables());
+		RetroLogger.debug(LogCategory.Main, "Mapping enums: {}", config.isMappingEnums());
+		RetroLogger.debug(LogCategory.Main, "Package remapping: {}", config.isPackageRemap());
+		RetroLogger.debug(LogCategory.Main, "ASM remapping transformer: {}", config.isAsmRemappingTransformer());
 
 		long start = System.nanoTime();
 
 		try {
-			List<ClassTransformer> transformers = Collections
-					.<ClassTransformer>singletonList(new AsmRemappingTransformer());
+			List<ClassTransformer> transformers = new ArrayList<ClassTransformer>();
+
+			if (config.isAsmRemappingTransformer()) {
+				transformers.add(new AsmRemappingTransformer());
+			}
 
 			RetroLogger.debug(LogCategory.Main, "Loaded {} transformer(s)", transformers.size());
 
-			JarProcessor processor = new JarProcessor(transformers, threads);
+			JarProcessor processor = new JarProcessor(transformers, config.getCoreThreads(), config);
 
 			RetroLogger.info(LogCategory.Main, "Starting obfuscation...");
 

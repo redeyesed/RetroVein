@@ -1,5 +1,10 @@
 package com.red.retrovein.mapping;
 
+import com.red.retrovein.config.RetroConfig;
+import com.red.retrovein.io.ClassInfo;
+import com.red.retrovein.logging.LogCategory;
+import com.red.retrovein.logging.RetroLogger;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -9,23 +14,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.red.retrovein.io.ClassInfo;
-import com.red.retrovein.logging.LogCategory;
-import com.red.retrovein.logging.RetroLogger;
-
 public final class MappingBuilder {
 	private final ClassMapper classMapper;
 	private final FieldMapper fieldMapper;
 	private final MethodMapper methodMapper;
 	private final LocalVariableMapper localVariableMapper;
 	private final EnumMapper enumMapper;
+	private final RetroConfig config;
 
-	public MappingBuilder() {
-		this.classMapper = new ClassMapper();
+	public MappingBuilder(RetroConfig config) {
+		this.classMapper = new ClassMapper(config.isPackageRemap());
 		this.fieldMapper = new FieldMapper();
 		this.methodMapper = new MethodMapper();
 		this.localVariableMapper = new LocalVariableMapper();
 		this.enumMapper = new EnumMapper();
+		this.config = config;
 	}
 
 	/*
@@ -36,7 +39,12 @@ public final class MappingBuilder {
 		RetroLogger.debug(LogCategory.Mapping, "Preparing {} classes for mapping", classInfos.size());
 		List<ClassInfo> sortedClasses = this.sortClasses(classInfos);
 		Map<String, String> classes = this.buildClassMappings(sortedClasses);
-		Map<String, ClassMetadata> metadata = this.buildMetadata(sortedClasses);
+		Map<String, ClassMetadata> metadata;
+		if (config.isMappingMethods()) {
+			metadata = this.buildMetadata(sortedClasses);
+		} else {
+			metadata = new HashMap<String, ClassMetadata>();
+		}
 		Map<String, String> fields = this.buildFieldMappings(sortedClasses);
 		Map<String, String> methods = this.buildMethodMappings(sortedClasses, metadata);
 		Map<String, String> localVariables = this.buildLocalVariableMappings(sortedClasses);
@@ -47,8 +55,17 @@ public final class MappingBuilder {
 	}
 
 	private Map<String, String> buildClassMappings(List<ClassInfo> classes) {
+		Map<String, String> mappings = new HashMap<String, String>();
+		if (!config.isMappingClasses()) {
+			RetroLogger.debug(LogCategory.Mapping, "Class mapping is disabled, preserving original class names");
+			for (ClassInfo classInfo : classes) {
+				String name = classInfo.getName();
+				mappings.put(name, name);
+			}
+			return mappings;
+		}
 		RetroLogger.debug(LogCategory.Mapping, "Generating class mappings");
-		Map<String, String> mappings = classMapper.build(classes);
+		mappings = classMapper.build(classes);
 		RetroLogger.debug(LogCategory.Mapping, "Generated {} class mappings", mappings.size());
 		return mappings;
 	}
@@ -61,6 +78,10 @@ public final class MappingBuilder {
 	}
 
 	private Map<String, String> buildFieldMappings(List<ClassInfo> classes) {
+		if (!config.isMappingFields()) {
+			RetroLogger.debug(LogCategory.Mapping, "Field mapping is disabled");
+			return new HashMap<String, String>();
+		}
 		RetroLogger.debug(LogCategory.Mapping, "Generating field mappings");
 		Map<String, String> mappings = fieldMapper.build(classes);
 		RetroLogger.debug(LogCategory.Mapping, "Generated {} field mappings", mappings.size());
@@ -69,6 +90,10 @@ public final class MappingBuilder {
 
 	private Map<String, String> buildMethodMappings(List<ClassInfo> sortedClasses,
 			Map<String, ClassMetadata> metadata) {
+		if (!config.isMappingMethods()) {
+			RetroLogger.debug(LogCategory.Mapping, "Method mapping is disabled");
+			return new HashMap<String, String>();
+		}
 		RetroLogger.debug(LogCategory.Mapping, "Generating method mappings");
 		List<ClassInfo> inheritanceOrder = sortByInheritance(sortedClasses, metadata);
 		Map<String, String> mappings = methodMapper.build(inheritanceOrder, metadata);
@@ -77,6 +102,10 @@ public final class MappingBuilder {
 	}
 
 	private Map<String, String> buildLocalVariableMappings(List<ClassInfo> classes) {
+		if (!config.isMappingLocalVariables()) {
+			RetroLogger.debug(LogCategory.Mapping, "Local variable mapping is disabled");
+			return new HashMap<String, String>();
+		}
 		RetroLogger.debug(LogCategory.Mapping, "Generating local variable mappings");
 		Map<String, String> mappings = localVariableMapper.build(classes);
 		RetroLogger.debug(LogCategory.Mapping, "Generated {} local variable mappings", mappings.size());
@@ -84,6 +113,10 @@ public final class MappingBuilder {
 	}
 
 	private Map<String, String> buildEnumMappings(List<ClassInfo> classes) {
+		if (!config.isMappingEnums()) {
+			RetroLogger.debug(LogCategory.Mapping, "Enum mapping is disabled");
+			return new HashMap<String, String>();
+		}
 		RetroLogger.debug(LogCategory.Mapping, "Generating enum mappings");
 		Map<String, String> mappings = enumMapper.build(classes);
 		RetroLogger.debug(LogCategory.Mapping, "Generated {} enum mappings", mappings.size());

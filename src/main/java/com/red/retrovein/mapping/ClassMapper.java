@@ -12,10 +12,12 @@ import java.util.Map;
 public final class ClassMapper {
 	private final NameGenerator nameGenerator;
 	private final PackageMapper packageMapper;
+	private final boolean packageRemap;
 
-	public ClassMapper() {
+	public ClassMapper(boolean packageRemap) {
 		this.nameGenerator = new NameGenerator();
 		this.packageMapper = new PackageMapper();
+		this.packageRemap = packageRemap;
 	}
 
 	public Map<String, String> build(List<ClassInfo> classInfos) {
@@ -25,7 +27,17 @@ public final class ClassMapper {
 		 * Создаёт отображение исходных имён классов на новые имена.
 		 */
 		String rootPackage = packageMapper.findRootPackage(classInfos);
-		String mappedPackage = packageMapper.mapPackage(rootPackage);
+		String mappedPackage;
+		if (packageRemap) {
+			mappedPackage = packageMapper.mapPackage(rootPackage);
+		} else {
+
+			/*
+			 * При отключённом package.remap сохраняем исходный пакет.
+			 */
+			mappedPackage = rootPackage;
+		}
+		RetroLogger.debug(LogCategory.Mapping, "Package remapping: {}", packageRemap);
 
 		for (ClassInfo classInfo : classInfos) {
 			String originalName = classInfo.getName();

@@ -1,5 +1,6 @@
 package com.red.retrovein.io;
 
+import com.red.retrovein.config.RetroConfig;
 import com.red.retrovein.logging.LogCategory;
 import com.red.retrovein.logging.RetroLogger;
 import com.red.retrovein.mapping.Mapping;
@@ -32,6 +33,7 @@ import java.util.jar.Manifest;
 public final class JarProcessor {
 	private final List<ClassTransformer> transformers;
 	private final int threads;
+	private final RetroConfig config;
 
 	/*
 	 * Количество задач, которые могут находиться в состоянии submitted/running
@@ -40,17 +42,22 @@ public final class JarProcessor {
 	 */
 	private static final int IN_FLIGHT_MULTIPLIER = 2;
 
-	public JarProcessor(List<ClassTransformer> transformers, int threads) {
-		if (transformers == null || transformers.isEmpty()) {
-			throw new IllegalArgumentException("transformers must not be empty");
+	public JarProcessor(List<ClassTransformer> transformers, int threads, RetroConfig config) {
+		if (transformers == null) {
+			throw new IllegalArgumentException("transformers must not be null");
 		}
 
 		if (threads <= 0) {
 			throw new IllegalArgumentException("threads must be greater than zero");
 		}
 
+		if (config == null) {
+			throw new IllegalArgumentException("config must not be null");
+		}
+
 		this.transformers = new ArrayList<ClassTransformer>(transformers);
 		this.threads = threads;
+		this.config = config;
 	}
 
 	public void process(Path input, Path output) throws IOException {
@@ -70,7 +77,7 @@ public final class JarProcessor {
 			 */
 			RetroLogger.info(LogCategory.Mapping, "Building mappings for {} classes", classInfos.size());
 
-			MappingBuilder mappingBuilder = new MappingBuilder();
+			MappingBuilder mappingBuilder = new MappingBuilder(config);
 
 			Mapping mapping = mappingBuilder.build(classInfos);
 
