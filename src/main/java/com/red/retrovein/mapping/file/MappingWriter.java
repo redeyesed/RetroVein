@@ -107,9 +107,14 @@ public final class MappingWriter {
 		Collections.sort(fields, new Comparator<FieldEntry>() {
 			@Override
 			public int compare(FieldEntry first, FieldEntry second) {
-				return compareMappedNames(first.mappedName, second.mappedName);
+				int result = first.name.compareToIgnoreCase(second.name);
+				if (result != 0) {
+					return result;
+				}
+				return first.descriptor.compareTo(second.descriptor);
 			}
 		});
+
 
 		for (FieldEntry field : fields) {
 			writeField(writer, field);
@@ -125,9 +130,14 @@ public final class MappingWriter {
 		Collections.sort(enums, new Comparator<FieldEntry>() {
 			@Override
 			public int compare(FieldEntry first, FieldEntry second) {
-				return compareMappedNames(first.mappedName, second.mappedName);
+				int result = first.name.compareToIgnoreCase(second.name);
+				if (result != 0) {
+					return result;
+				}
+				return first.descriptor.compareTo(second.descriptor);
 			}
 		});
+
 
 		for (FieldEntry field : enums) {
 			writeField(writer, field);
@@ -155,9 +165,14 @@ public final class MappingWriter {
 		Collections.sort(methods, new Comparator<MethodEntry>() {
 			@Override
 			public int compare(MethodEntry first, MethodEntry second) {
-				return compareMappedNames(first.mappedName, second.mappedName);
+				int result = first.name.compareToIgnoreCase(second.name);
+				if (result != 0) {
+					return result;
+				}
+				return first.descriptor.compareTo(second.descriptor);
 			}
 		});
+
 
 		for (MethodEntry method : methods) {
 			writer.write("    ");
